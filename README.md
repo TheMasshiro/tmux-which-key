@@ -55,6 +55,30 @@ Reload tmux:
 tmux source-file ~/.tmux.conf
 ```
 
+### Nix (with Flakes)
+
+If you use Nix and Flakes, you can add this plugin to your [Home Manager](https://github.com/nix-community/home-manager) configuration.
+
+1. Add to your `flake.nix` inputs:
+
+```nix
+{
+  inputs.tmux-which-key.url = "github:Nucc/tmux-which-key";
+}
+```
+
+2. Add the package to `programs.tmux.plugins` in your configuration:
+
+```nix
+{ pkgs, inputs, ... }: {
+  programs.tmux.plugins = [
+    inputs.tmux-which-key.packages.${pkgs.system}.default
+  ];
+}
+```
+
+**Note:** Ensure `jq` is available in your system path, as it is required for JSON parsing.
+
 ## Usage
 
 Press `prefix + Space` (default) to open the which-key popup.

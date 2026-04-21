@@ -7,15 +7,17 @@
 
   outputs = { self, nixpkgs }:
     let
-      system = "x86_64-linux";
-      pkgs = import nixpkgs { inherit system; };
+      systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+      forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f (import nixpkgs { inherit system; }));
     in
     {
-      packages.${system}.default = pkgs.tmuxPlugins.mkTmuxPlugin {
-        pluginName = "tmux-which-key";
-        version = "2026-04-21";
-        src = ./.;
-        rtpFilePath = "which-key.tmux";
-      };
+      packages = forAllSystems (pkgs: {
+        default = pkgs.tmuxPlugins.mkTmuxPlugin {
+          pluginName = "tmux-which-key";
+          version = "2026-04-21";
+          src = ./.;
+          rtpFilePath = "which-key.tmux";
+        };
+      });
     };
 }
