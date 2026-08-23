@@ -1,5 +1,18 @@
 # tmux-which-key
 
+> ## ⚠️ Unmaintained — looking for a new maintainer
+>
+> This project was just an experiment. It works, but I have no time to develop or
+> maintain it any further, so it is **not actively maintained**.
+>
+> **If you want to take it over, please do!** Feel free to fork it and carry it
+> forward — you don't need my permission. If you open an issue or a pull request
+> to let me know, I'm happy to link your fork here as the official successor so
+> that people land on the maintained version instead of this one.
+>
+> Bug reports and feature requests will most likely go unanswered — please don't
+> take it personally.
+
 A LazyVim-style which-key popup for tmux. Press a trigger key to open a discoverable, keyboard-driven command menu with nested groups, breadcrumb navigation, and Nord-themed colors.
 
 ![Nord theme](https://img.shields.io/badge/theme-Nord-88C0D0?style=flat-square)
