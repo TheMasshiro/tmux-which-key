@@ -3,6 +3,8 @@
 # Usage: which-key.sh [--config <path>] <pane_id>
 
 set -uo pipefail
+printf '\033[?25l'
+trap 'printf "\033[?25h"' EXIT
 
 PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG_FILE=""
@@ -35,12 +37,12 @@ if [[ -z "$CONFIG_FILE" ]]; then
     fi
 fi
 
-# Nord theme colors
-C_KEY=$'\033[38;2;235;203;139m'       # #EBCB8B - yellow
-C_GRP=$'\033[38;2;136;192;208m'       # #88C0D0 - cyan
-C_DESC=$'\033[38;2;216;222;233m'      # #D8DEE9 - light gray
-C_SEP=$'\033[38;2;76;86;106m'         # #4C566A - dark gray
-C_HDR=$'\033[38;2;129;161;193m'       # #81A1C1 - blue
+# Catppuccin Mocha theme colors
+C_KEY=$'\033[38;2;249;226;175m'       # #F9E2AF - yellow
+C_GRP=$'\033[38;2;137;220;235m'       # #89DCEB - sky
+C_DESC=$'\033[38;2;205;214;244m'      # #CDD6F4 - text
+C_SEP=$'\033[38;2;108;112;134m'       # #6C7086 - overlay0
+C_HDR=$'\033[38;2;137;180;250m'       # #89B4FA - blue
 C_R=$'\033[0m'
 
 if [[ -z "$PANE_ID" ]]; then

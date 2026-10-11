@@ -1,21 +1,8 @@
 # tmux-which-key
 
-> ## ⚠️ Unmaintained — looking for a new maintainer
->
-> This project was just an experiment. It works, but I have no time to develop or
-> maintain it any further, so it is **not actively maintained**.
->
-> **If you want to take it over, please do!** Feel free to fork it and carry it
-> forward — you don't need my permission. If you open an issue or a pull request
-> to let me know, I'm happy to link your fork here as the official successor so
-> that people land on the maintained version instead of this one.
->
-> Bug reports and feature requests will most likely go unanswered — please don't
-> take it personally.
+A LazyVim-style which-key popup for tmux. Press a trigger key to open a discoverable, keyboard-driven command menu with nested groups, breadcrumb navigation, and Catppuccin Mocha themed colors.
 
-A LazyVim-style which-key popup for tmux. Press a trigger key to open a discoverable, keyboard-driven command menu with nested groups, breadcrumb navigation, and Nord-themed colors.
-
-![Nord theme](https://img.shields.io/badge/theme-Nord-88C0D0?style=flat-square)
+![Catppuccin Mocha theme](https://img.shields.io/badge/theme-Catppuccin%20Mocha-CBA6F7?style=flat-square&labelColor=1E1E2E)
 ![tmux](https://img.shields.io/badge/tmux-3.3+-green?style=flat-square)
 
 ![tmux-which-key screenshot](https://gist.githubusercontent.com/Nucc/2eb50f2a324d8e79a8f231b16cdb3b4f/raw/screenshot.png)
@@ -25,7 +12,7 @@ A LazyVim-style which-key popup for tmux. Press a trigger key to open a discover
 - **Discoverable keybindings** - see all available commands at a glance
 - **Nested groups** - organize commands hierarchically (git, window, session, etc.)
 - **Breadcrumb navigation** - always know where you are in the menu tree
-- **Nord color theme** - clean, readable color scheme using 24-bit true color
+- **Catppuccin Mocha theme** - soft pastel color scheme using 24-bit true color
 - **JSON configuration** - easy to customize, extend, and share
 - **Five action types** - shell commands (with optional auto-execute), tmux commands, external scripts, popups, and nested groups
 - **Single-keystroke input** - no Enter key required, instant response
@@ -100,7 +87,7 @@ Press `prefix + Space` (default) to open the which-key popup.
 - **Escape** to go back one level or close the menu
 - **Backspace** to go back one level or close the menu
 
-Groups are indicated by a `+` prefix and shown in cyan. Pressing a group key opens its submenu with a breadcrumb showing your navigation path.
+Groups are indicated by a `+` prefix and shown in sky blue. Pressing a group key opens its submenu with a breadcrumb showing your navigation path.
 
 ## Configuration
 
@@ -114,10 +101,10 @@ Set these in your `~/.tmux.conf` before loading the plugin:
 | `@which-key-config` | _(auto-detected)_ | Path to a custom JSON config file |
 | `@which-key-popup-height` | `16` | Popup height in lines |
 | `@which-key-popup-width` | `100` | Popup width in characters |
-| `@which-key-popup-bg` | `#2E3440` | Popup background color |
-| `@which-key-popup-fg` | `#4C566A` | Popup border/foreground color |
+| `@which-key-popup-bg` | `#181825` | Popup background color |
+| `@which-key-popup-fg` | `#6C7086` | Popup border/foreground color |
 | `@which-key-popup-x` | `C` | Popup X position (`C` = centered) |
-| `@which-key-popup-y` | `S` | Popup Y position (`S` = status line) |
+| `@which-key-popup-y` | `#{client_height}` | Popup Y position (`#{client_height}` = bottom of the client) |
 
 Example:
 
@@ -139,13 +126,13 @@ To bind `Ctrl-Space` directly (no prefix needed):
 set -g @which-key-trigger 'None'
 
 # Bind Ctrl-Space directly (-n = no prefix)
-bind-key -n C-Space run-shell 'tmux display-popup -E -h 16 -w 100 -x C -y S -S "fg=#4C566A" -s "bg=#2E3440" "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh #{pane_id}"'
+bind-key -n C-Space run-shell 'tmux display-popup -E -h 16 -w 100 -x C -y "#{client_height}" -S "fg=#6C7086" -s "bg=#181825" "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh #{pane_id}"'
 ```
 
 To use a custom config with a manual binding:
 
 ```tmux
-bind-key -n C-Space run-shell 'tmux display-popup -E -h 16 -w 100 -x C -y S -S "fg=#4C566A" -s "bg=#2E3440" "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh --config ~/.config/tmux-which-key/config.json #{pane_id}"'
+bind-key -n C-Space run-shell 'tmux display-popup -E -h 16 -w 100 -x C -y "#{client_height}" -S "fg=#6C7086" -s "bg=#181825" "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh --config ~/.config/tmux-which-key/config.json #{pane_id}"'
 ```
 
 ### Custom Config File

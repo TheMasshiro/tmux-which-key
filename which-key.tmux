@@ -30,16 +30,16 @@ main() {
     popup_width=$(get_tmux_option "@which-key-popup-width" "100")
 
     local popup_bg
-    popup_bg=$(get_tmux_option "@which-key-popup-bg" "#2E3440")
+    popup_bg=$(get_tmux_option "@which-key-popup-bg" "#181825")
 
     local popup_fg
-    popup_fg=$(get_tmux_option "@which-key-popup-fg" "#4C566A")
+    popup_fg=$(get_tmux_option "@which-key-popup-fg" "#6C7086")
 
     local popup_x
     popup_x=$(get_tmux_option "@which-key-popup-x" "C")
 
     local popup_y
-    popup_y=$(get_tmux_option "@which-key-popup-y" "S")
+    popup_y=$(get_tmux_option "@which-key-popup-y" "#{client_height}")
 
     # Build config flag
     local config_flag=""
