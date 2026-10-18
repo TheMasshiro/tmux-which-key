@@ -8,7 +8,7 @@ A which-key popup for tmux. Press `prefix + Space` and see every key you have bo
 ![tmux](https://img.shields.io/badge/tmux-3.4+-green?style=flat-square)
 ![Catppuccin Mocha theme](https://img.shields.io/badge/theme-Catppuccin%20Mocha-CBA6F7?style=flat-square&labelColor=1E1E2E)
 
-![tmux-which-key screenshot](docs/screenshot.png)
+![tmux-which-key screenshot](docs/root-menu.png)
 
 ## Features
 
