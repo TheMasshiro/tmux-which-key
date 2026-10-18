@@ -18,7 +18,7 @@ A LazyVim-style which-key popup for tmux. Press a trigger key to open a discover
 - **Discoverable keybindings** - see all available commands at a glance
 - **Nested groups** - organize commands hierarchically (git, window, session, etc.)
 - **Breadcrumb navigation** - always know where you are in the menu tree
-- **Catppuccin Mocha theme** - soft pastel color scheme using 24-bit true color
+- **Themeable** - colors, popup background, symbols and hint text live in one theme file (Catppuccin Mocha by default)
 - **Optional JSON configuration** - override the live menu with a static, hand-written one
 - **Five action types** (static configs) - shell commands (with optional auto-execute), tmux commands, external scripts, popups, and nested groups
 - **Single-keystroke input** - no Enter key required, instant response
@@ -93,7 +93,7 @@ Press `prefix + Space` (default) to open the which-key popup.
 - **Escape** to go back one level or close the menu
 - **Backspace** to go back one level or close the menu
 
-Groups are indicated by a `+` prefix and shown in mauve. Pressing a group key opens its submenu with a breadcrumb showing your navigation path.
+Keys are blue, actions yellow, and groups are mauve with a `+` prefix. Pressing a group key opens its submenu with a breadcrumb showing your navigation path.
 
 ## Configuration
 
@@ -108,7 +108,6 @@ Set these in your `~/.tmux.conf` before loading the plugin:
 | `@which-key-theme` | `catppuccin-mocha` | Theme name in `themes/` or path to a theme file |
 | `@which-key-popup-height` | _(fits the menu)_ | Popup height in lines |
 | `@which-key-popup-width` | _(fits the menu)_ | Popup width |
-| `@which-key-popup-bg` | `#181825` | Popup background color |
 | `@which-key-popup-x` | `C` | Popup X position (`C` = centered) |
 | `@which-key-popup-y` | `#{client_height}` | Popup Y position (`#{client_height}` = bottom of the client) |
 
@@ -139,8 +138,19 @@ The manual binding reads the same `@which-key-*` options (config, theme, popup s
 
 ### Themes
 
-Colors live in `themes/catppuccin-mocha.sh`. To change them, copy it, edit the `C_*` values
-(24-bit ANSI escapes), and point the plugin at your copy:
+Everything visual lives in a theme file. The default is `themes/catppuccin-mocha.sh`:
+
+| Variable | What it styles |
+|----------|----------------|
+| `C_KEY`, `C_ARROW`, `C_DESC`, `C_GRP` | Key, arrow, action label, `+group` label |
+| `C_BORDER`, `C_TITLE`, `C_FOOT` | Box border, breadcrumb, esc/back hints |
+| `POPUP_BG` | Popup background (tmux color, e.g. `#181825`) |
+| `ICON_ARROW`, `ICON_GROUP`, `ICON_SEP` | `→`, `+`, `»` |
+| `BORDER_TL` `BORDER_TR` `BORDER_BL` `BORDER_BR` `BORDER_H` `BORDER_V` | Box corners and edges |
+| `TITLE_ROOT`, `HINT_CLOSE`, `HINT_BACK` | `root`, `esc close`, `⌫ back` |
+
+Colors are 24-bit ANSI escapes (`$'\033[38;2;R;G;Bm'`); symbols must be one column wide.
+To customize, copy the file, edit it, and point the plugin at your copy:
 
 ```tmux
 set -g @which-key-theme '~/.config/tmux-which-key/mytheme.sh'
