@@ -35,3 +35,4 @@ ICON_buffer=""   COLOR_buffer=$'\033[38;2;249;226;175m'    # clippy          
 ICON_layout=""   COLOR_layout=$'\033[38;2;148;226;213m'    # layout           teal
 ICON_misc=""     COLOR_misc=$'\033[38;2;147;153;178m'      # settings-gear    overlay2
 ICON_move=""     COLOR_move=$'\033[38;2;245;194;231m'      # move             pink
+ICON_git=""      COLOR_git=$'\033[38;2;235;160;172m'      # source-control   maroon

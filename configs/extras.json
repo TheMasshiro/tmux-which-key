@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "key": "g",
+      "type": "group",
+      "description": "Git",
+      "icon": "git",
+      "items": [
+        { "key": "s", "type": "action", "command": "git status", "description": "Status", "immediate": true },
+        { "key": "d", "type": "action", "command": "git diff", "description": "Diff", "immediate": true },
+        { "key": "D", "type": "action", "command": "git diff --staged", "description": "Diff staged", "immediate": true },
+        { "key": "l", "type": "action", "command": "git log --oneline --graph -20", "description": "Log", "immediate": true },
+        { "key": "b", "type": "action", "command": "git branch -a", "description": "Branches", "immediate": true },
+        { "key": "a", "type": "action", "command": "git add -p", "description": "Add (patch)", "immediate": true },
+        { "key": "c", "type": "action", "command": "git commit", "description": "Commit", "immediate": true },
+        { "key": "p", "type": "action", "command": "git push", "description": "Push", "immediate": true },
+        { "key": "P", "type": "action", "command": "git pull", "description": "Pull", "immediate": true },
+        { "key": "f", "type": "action", "command": "git fetch --all", "description": "Fetch all", "immediate": true },
+        { "key": "z", "type": "action", "command": "git stash", "description": "Stash", "immediate": true },
+        { "key": "Z", "type": "action", "command": "git stash pop", "description": "Stash pop", "immediate": true },
+        { "key": "g", "type": "popup", "command": "lazygit", "description": "Lazygit", "requires": "lazygit" }
+      ]
+    }
+  ]
+}
