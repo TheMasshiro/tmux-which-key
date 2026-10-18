@@ -151,7 +151,8 @@ The plugin looks for a config file in this order:
 4. Your live tmux key bindings (default)
 
 With no config file, the menu is built from the `prefix` key table of the running tmux
-server, so your own binds show up and run as bound. A binding to `switch-client -T <table>`
+server, so your own binds show up and run as bound. They are grouped by what they do:
+`p` pane, `w` window, `s` session, `b` buffer, `l` layout, `m` misc (so split is `prefix Space p |`). A binding to `switch-client -T <table>`
 becomes a group. Labels come from `bind -N "note"`, otherwise the command text. Needs tmux 3.4+.
 `configs/default.json` is kept as an example static config.
 
