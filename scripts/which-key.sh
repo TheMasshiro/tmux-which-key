@@ -213,6 +213,10 @@ ICONS=0
 C_ICON=""
 source "$THEME_FILE"
 C_R=$'\033[0m'
+case "$(get_tmux_option "@which-key-icons" "")" in
+    on|1|yes|true) ICONS=1 ;;
+    off|0|no|false) ICONS=0 ;;
+esac
 ICON_W=$(( ICONS ? 2 : 0 ))   # icon glyph + space
 
 # Sets IC/IC_COLOR for an item's icon field: a theme name (ICON_<name>/COLOR_<name>) or a literal glyph
