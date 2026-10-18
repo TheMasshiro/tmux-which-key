@@ -13,6 +13,8 @@ PANE_ID=""
 CLIENT=""
 THEME=""
 OPEN=""
+REPLAY_TABLE=""
+REPLAY_KEY=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -33,6 +35,11 @@ while [[ $# -gt 0 ]]; do
             OPEN=1
             shift
             ;;
+        --replay)
+            REPLAY_TABLE="$2"
+            REPLAY_KEY="$3"
+            shift 3
+            ;;
         *)
             PANE_ID="$1"
             shift
@@ -44,6 +51,29 @@ if [[ -z "$PANE_ID" ]]; then
     echo "Usage: which-key.sh [--open] [--config <path>] [--theme <name|path>] [--client <name>] <pane_id>"
     exit 1
 fi
+
+# Errors go to the tmux status line: inside a popup or run-shell an echo would be lost or open a view
+die() {
+    echo "tmux-which-key: $1" >&2
+    tmux display-message -l ${CLIENT:+-c "$CLIENT"} "tmux-which-key: $1"
+    exit 1
+}
+
+[[ -z "$CLIENT" ]] && CLIENT=$(tmux display-message -p '#{client_name}')
+
+# Replay mode: run the real binding once the popup has closed (started by the `key` action below).
+# Its error, e.g. "can't find window: 3", is shown like tmux shows it for a typed key.
+if [[ -n "$REPLAY_TABLE" ]]; then
+    sleep 0.1
+    [[ "$REPLAY_KEY" == ";" ]] && REPLAY_KEY='\;'   # a bare ; is tmux's command separator
+    if ! out=$(tmux switch-client -c "$CLIENT" -T "$REPLAY_TABLE" 2>&1 && tmux send-keys -K -c "$CLIENT" "$REPLAY_KEY" 2>&1); then
+        tmux switch-client -c "$CLIENT" -T root 2>/dev/null
+        tmux display-message -l -c "$CLIENT" "${out:-$REPLAY_KEY failed}"
+    fi
+    exit 0
+fi
+
+command -v jq >/dev/null || die "jq is required but not installed"
 
 get_tmux_option() {
     local value
@@ -183,9 +213,9 @@ elif [[ -z "$CONFIG_FILE" ]]; then
 elif [[ -f "$CONFIG_FILE" ]]; then
     CONFIG=$(cat "$CONFIG_FILE")
 else
-    echo "Config not found: $CONFIG_FILE"
-    exit 1
+    die "config not found: $CONFIG_FILE"
 fi
+jq -e '.items | type == "array"' >/dev/null 2>&1 <<< "$CONFIG" || die "config has no valid items array: ${CONFIG_FILE:-live bindings}"
 
 # Layout: up to MAX_COLS columns of "key → label", packed to the content
 MAX_COLS=4
@@ -205,10 +235,7 @@ layout() {
 
 # Theme: a name in themes/ or a path to a file defining colors, popup bg, symbols and text
 if [[ "$THEME" == */* ]]; then THEME_FILE="$THEME"; else THEME_FILE="$PLUGIN_DIR/themes/$THEME.sh"; fi
-if [[ ! -f "$THEME_FILE" ]]; then
-    echo "Theme not found: $THEME_FILE"
-    exit 1
-fi
+[[ -f "$THEME_FILE" ]] || die "theme not found: $THEME_FILE"
 C_ICON=""
 source "$THEME_FILE"
 C_R=$'\033[0m'
@@ -243,6 +270,7 @@ if [[ -n "$OPEN" ]]; then
         | "\(length) \(map(.key | length) | max) \(map((.description | length) + (if .type == "group" then $g else 0 end)) | max)"' --argjson g "${#ICON_GROUP}" <<< "$CONFIG")
     (( w > cw )) && w=$cw
     (( h > ch )) && h=$ch
+    (( h < 3 )) && h=3   # an empty menu still needs its border and hint
     tmux display-popup -E -B -c "$CLIENT" -t "$PANE_ID" \
         -w "$(get_tmux_option "@which-key-popup-width" "$w")" \
         -h "$(get_tmux_option "@which-key-popup-height" "$h")" \
@@ -270,7 +298,7 @@ get_current_items() {
     for idx in "${NAV_STACK[@]}"; do
         path="${path}[${idx}].items"
     done
-    echo "$CONFIG" | jq -r "${path}[] | [.key, .type, .description, (.icon // \"-\"), (.command // \"\"), (if .immediate then \"true\" else \"false\" end)] | @tsv" 2>/dev/null
+    echo "$CONFIG" | jq -r "${path}[] | [.key, .type, .description, (.icon // \"-\"), (.command // \"\"), (if .immediate then \"true\" else \"false\" end)] | map(tostring | gsub(\"\t\"; \" \")) | join(\"\t\")" 2>/dev/null
 }
 
 get_breadcrumb() {
@@ -375,8 +403,9 @@ handle_key() {
                 key)
                     local tbl ks
                     read -r tbl ks <<< "$command"
-                    [[ "$ks" == ";" ]] && ks='\;'
-                    tmux run-shell -b "sleep 0.1; tmux switch-client -c $(printf '%q' "$CLIENT") -T $(printf '%q' "$tbl") && tmux send-keys -K -c $(printf '%q' "$CLIENT") $(printf '%q' "$ks")"
+                    local cmd
+                    cmd=$(printf '%q ' "$PLUGIN_DIR/scripts/which-key.sh" --replay "$tbl" "$ks" --client "$CLIENT" "$PANE_ID")
+                    tmux run-shell -b "${cmd//\#/##}"   # ## so run-shell does not expand # as a format
                     exit 0
                     ;;
                 tmux)
@@ -409,6 +438,8 @@ while true; do
     # Escape
     if [[ "$keypress" == $'\x1b' ]]; then
         read -rsn1 -t 0.1 seq1 || true
+        # Drop the rest of an escape sequence (arrows, F-keys) so it is not read as menu keys
+        [[ -n "$seq1" ]] && while read -rsn1 -t 0.01 _; do :; done
         if [[ -z "$seq1" ]]; then
             if [[ ${#NAV_STACK[@]} -gt 0 ]]; then
                 unset 'NAV_STACK[${#NAV_STACK[@]}-1]'
