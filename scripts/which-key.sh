@@ -41,20 +41,35 @@ if [[ -z "$CONFIG_FILE" ]]; then
 fi
 
 # Build the menu from the prefix key table of the running tmux server.
-# A `switch-client -T <table>` binding becomes a group listing that table (one level).
+# Bindings are grouped by the tmux command family they run (pane, window, ...);
+# a `switch-client -T <table>` binding becomes a group listing that table (one level).
 # Description is the `bind -N` note, else the command truncated.
 build_from_tmux() {
     tmux list-keys -F $'#{key_table}\t#{key_string}\t#{key_note}\t#{key_command}' | jq -Rn '
         [inputs | split("\t") | {t: .[0], k: .[1], n: .[2], c: (.[3:] | join(" "))}] as $b
         | def desc: if .n != "" then .n else .c[:22] end;
           def leaf: {key: .k, type: "key", description: desc, command: (.t + " " + .k)};
-          def entry:
-              if (.c | test("^switch-client -T ")) then
-                  (.c | sub("^switch-client -T "; "")) as $t
-                  | {key: .k, type: "group", description: (if .n != "" then .n else $t end),
-                     items: [$b[] | select(.t == $t) | leaf]}
-              else leaf end;
-          {items: [$b[] | select(.t == "prefix") | entry]}'
+          def is_table: .c | test("^switch-client -T ");
+          # shortcut: first word decides the group, wrappers use the whole command, add a family here if one lands in misc
+          def cat:
+              (.c | split(" ")[0]) as $w
+              | (if $w | IN("confirm-before", "command-prompt", "if-shell") then .c else $w end) as $x
+              | if   $x | test("pane|split-window|clear-history") then "pane"
+                elif $x | test("window|rotate") then "window"
+                elif $x | test("session|client|choose-tree") then "session"
+                elif $x | test("buffer|copy-mode") then "buffer"
+                elif $x | test("layout") then "layout"
+                else "misc" end;
+          [$b[] | select(.t == "prefix")] as $p
+          | {items: (
+              [[["pane","p"],["window","w"],["session","s"],["buffer","b"],["layout","l"],["misc","m"]][] as [$n, $k]
+               | [$p[] | select((is_table | not) and cat == $n) | leaf] as $i
+               | select($i | length > 0)
+               | {key: $k, type: "group", description: $n, items: $i}]
+              + [$p[] | select(is_table)
+                 | (.c | sub("^switch-client -T "; "")) as $t
+                 | {key: .k, type: "group", description: (if .n != "" then .n else $t end),
+                    items: [$b[] | select(.t == $t) | leaf]}])}'
 }
 
 # Catppuccin Mocha theme colors
@@ -148,6 +163,7 @@ render_menu() {
                     prefix="+"
                     dc="$C_GRP"
                 fi
+                d="${d:0:$((col_width - ${#k} - 4 - ${#prefix} - 1))}"
                 local visible_len=$(( ${#k} + 4 + ${#prefix} + ${#d} ))
                 local pad=$((col_width - visible_len))
                 [[ $pad -lt 1 ]] && pad=1
@@ -195,7 +211,7 @@ handle_key() {
                     local tbl ks
                     read -r tbl ks <<< "$command"
                     [[ "$ks" == ";" ]] && ks='\;'
-                    nohup sh -c 'sleep 0.1; tmux switch-client -c "$1" -T "$2" && tmux send-keys -K -c "$1" "$3"' _ "$CLIENT" "$tbl" "$ks" >/dev/null 2>&1 &
+                    tmux run-shell -b "sleep 0.1; tmux switch-client -c $(printf '%q' "$CLIENT") -T $(printf '%q' "$tbl") && tmux send-keys -K -c $(printf '%q' "$CLIENT") $(printf '%q' "$ks")"
                     exit 0
                     ;;
                 tmux)
