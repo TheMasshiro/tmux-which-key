@@ -24,11 +24,9 @@ TITLE_ROOT="root"
 HINT_CLOSE="esc close"
 HINT_BACK="⌫ back"
 
-# Icons (needs a Nerd Font; thin Codicons). ICONS=0 turns the icon column off;
-# set -g @which-key-icons on|off in tmux.conf overrides this.
+# Icons (needs a Nerd Font; thin Codicons). Turn them off with set -g @which-key-icons off.
 # Each group has ICON_<name> and COLOR_<name>; its actions share the icon.
 # A static JSON config can set "icon" to one of these names or to a literal glyph.
-ICONS=1
 C_ICON=$'\033[38;2;147;153;178m'      # #9399B2 overlay2 - icon with no COLOR_<name>
 ICON_pane=""     COLOR_pane=$'\033[38;2;137;180;250m'      # split-horizontal blue
 ICON_window=""   COLOR_window=$'\033[38;2;166;227;161m'    # window           green

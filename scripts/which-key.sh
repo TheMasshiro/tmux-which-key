@@ -209,12 +209,11 @@ if [[ ! -f "$THEME_FILE" ]]; then
     echo "Theme not found: $THEME_FILE"
     exit 1
 fi
-ICONS=0
 C_ICON=""
 source "$THEME_FILE"
 C_R=$'\033[0m'
-case "$(get_tmux_option "@which-key-icons" "")" in
-    on|1|yes|true) ICONS=1 ;;
+ICONS=1
+case "$(get_tmux_option "@which-key-icons" "on")" in
     off|0|no|false) ICONS=0 ;;
 esac
 ICON_W=$(( ICONS ? 2 : 0 ))   # icon glyph + space

@@ -19,7 +19,7 @@ A which-key popup for tmux. Press a trigger key to open a discoverable, keyboard
 - **Nested groups** - organize commands hierarchically (git, window, session, etc.)
 - **Breadcrumb navigation** - always know where you are in the menu tree
 - **Themeable** - colors, popup background, icons, symbols and hint text live in one theme file (Catppuccin Mocha by default)
-- **Icons** - Nerd Font icons per group (on by default; `set -g @which-key-icons off` or `ICONS=0` in the theme turns them off)
+- **Icons** - Nerd Font icons per group (on by default; `set -g @which-key-icons off` turns them off)
 - **Optional JSON configuration** - override the live menu with a static, hand-written one
 - **Five action types** (static configs) - shell commands (with optional auto-execute), tmux commands, external scripts, popups, and nested groups
 - **Single-keystroke input** - no Enter key required, instant response
@@ -29,7 +29,7 @@ A which-key popup for tmux. Press a trigger key to open a discoverable, keyboard
 - tmux >= 3.4 (for `display-popup`, `list-keys -F` and `send-keys -K`)
 - `jq` (for JSON parsing)
 - A terminal with true color (24-bit) support
-- A [Nerd Font](https://www.nerdfonts.com/) for the icons (or set `ICONS=0` in the theme)
+- A [Nerd Font](https://www.nerdfonts.com/) for the icons (or `set -g @which-key-icons off`)
 
 ## Installation
 
@@ -108,7 +108,7 @@ Set these in your `~/.tmux.conf` before loading the plugin:
 | `@which-key-trigger` | `Space` | Key binding (after prefix) to open the menu |
 | `@which-key-config` | _(auto-detected)_ | Path to a custom JSON config file |
 | `@which-key-theme` | `catppuccin-mocha` | Theme name in `themes/` or path to a theme file |
-| `@which-key-icons` | _(theme's `ICONS`, on)_ | `on` / `off` to show or hide the Nerd Font icons |
+| `@which-key-icons` | `on` | `on` / `off` to show or hide the Nerd Font icons |
 | `@which-key-popup-height` | _(fits the menu)_ | Popup height in lines |
 | `@which-key-popup-width` | _(fits the menu)_ | Popup width |
 | `@which-key-popup-x` | `C` | Popup X position (`C` = centered) |
@@ -151,7 +151,6 @@ Everything visual lives in a theme file. The default is `themes/catppuccin-mocha
 | `ICON_ARROW`, `ICON_GROUP`, `ICON_SEP` | `→`, `+`, `»` |
 | `BORDER_TL` `BORDER_TR` `BORDER_BL` `BORDER_BR` `BORDER_H` `BORDER_V` | Box corners and edges |
 | `TITLE_ROOT`, `HINT_CLOSE`, `HINT_BACK` | `root`, `esc close`, `⌫ back` |
-| `ICONS` | `1` shows a Nerd Font icon before each label, `0` hides the icon column |
 | `ICON_<group>`, `COLOR_<group>` | Icon and color for a group and its actions (`pane`, `window`, `session`, `buffer`, `layout`, `misc`, or a key-table name like `move`) |
 | `C_ICON` | Color for icons without a `COLOR_<group>` |
 
