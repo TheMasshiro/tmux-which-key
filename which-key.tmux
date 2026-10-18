@@ -24,7 +24,7 @@ main() {
     config=$(get_tmux_option "@which-key-config" "")
 
     local popup_height
-    popup_height=$(get_tmux_option "@which-key-popup-height" "60%")
+    popup_height=$(get_tmux_option "@which-key-popup-height" "12")
 
     local popup_width
     popup_width=$(get_tmux_option "@which-key-popup-width" "100%")
@@ -32,14 +32,14 @@ main() {
     local popup_bg
     popup_bg=$(get_tmux_option "@which-key-popup-bg" "#181825")
 
-    local popup_fg
-    popup_fg=$(get_tmux_option "@which-key-popup-fg" "#6C7086")
-
     local popup_x
     popup_x=$(get_tmux_option "@which-key-popup-x" "C")
 
     local popup_y
     popup_y=$(get_tmux_option "@which-key-popup-y" "#{client_height}")
+
+    local theme
+    theme=$(get_tmux_option "@which-key-theme" "catppuccin-mocha")
 
     # Build config flag
     local config_flag=""
@@ -51,8 +51,8 @@ main() {
     local popup_cmd="tmux display-popup -E"
     popup_cmd+=" -h $popup_height -w $popup_width"
     popup_cmd+=" -x $popup_x -y $popup_y"
-    popup_cmd+=" -S 'fg=$popup_fg' -s 'bg=$popup_bg'"
-    popup_cmd+=" '$CURRENT_DIR/scripts/which-key.sh $config_flag --client #{client_name} #{pane_id}'"
+    popup_cmd+=" -B -s 'bg=$popup_bg'"
+    popup_cmd+=" '$CURRENT_DIR/scripts/which-key.sh $config_flag --theme $theme --client #{client_name} #{pane_id}'"
 
     tmux bind-key "$trigger" run-shell "$popup_cmd"
 }

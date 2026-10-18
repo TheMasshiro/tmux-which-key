@@ -93,7 +93,7 @@ Press `prefix + Space` (default) to open the which-key popup.
 - **Escape** to go back one level or close the menu
 - **Backspace** to go back one level or close the menu
 
-Groups are indicated by a `+` prefix and shown in sky blue. Pressing a group key opens its submenu with a breadcrumb showing your navigation path.
+Groups are indicated by a `+` prefix and shown in mauve. Pressing a group key opens its submenu with a breadcrumb showing your navigation path.
 
 ## Configuration
 
@@ -105,10 +105,10 @@ Set these in your `~/.tmux.conf` before loading the plugin:
 |--------|---------|-------------|
 | `@which-key-trigger` | `Space` | Key binding (after prefix) to open the menu |
 | `@which-key-config` | _(auto-detected)_ | Path to a custom JSON config file |
-| `@which-key-popup-height` | `60%` | Popup height |
+| `@which-key-theme` | `catppuccin-mocha` | Theme name in `themes/` or path to a theme file |
+| `@which-key-popup-height` | `12` | Popup height in lines |
 | `@which-key-popup-width` | `100%` | Popup width |
 | `@which-key-popup-bg` | `#181825` | Popup background color |
-| `@which-key-popup-fg` | `#6C7086` | Popup border/foreground color |
 | `@which-key-popup-x` | `C` | Popup X position (`C` = centered) |
 | `@which-key-popup-y` | `#{client_height}` | Popup Y position (`#{client_height}` = bottom of the client) |
 
@@ -132,14 +132,25 @@ To bind `Ctrl-Space` directly (no prefix needed):
 set -g @which-key-trigger 'None'
 
 # Bind Ctrl-Space directly (-n = no prefix)
-bind-key -n C-Space run-shell 'tmux display-popup -E -h 60% -w 100% -x C -y "#{client_height}" -S "fg=#6C7086" -s "bg=#181825" "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh --client #{client_name} #{pane_id}"'
+bind-key -n C-Space run-shell 'tmux display-popup -E -h 12 -w 100% -x C -y "#{client_height}" -B -s "bg=#181825" "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh --client #{client_name} #{pane_id}"'
 ```
 
 To use a custom config with a manual binding:
 
 ```tmux
-bind-key -n C-Space run-shell 'tmux display-popup -E -h 60% -w 100% -x C -y "#{client_height}" -S "fg=#6C7086" -s "bg=#181825" "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh --config ~/.config/tmux-which-key/config.json --client #{client_name} #{pane_id}"'
+bind-key -n C-Space run-shell 'tmux display-popup -E -h 12 -w 100% -x C -y "#{client_height}" -B -s "bg=#181825" "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh --config ~/.config/tmux-which-key/config.json --client #{client_name} #{pane_id}"'
 ```
+
+### Themes
+
+Colors live in `themes/catppuccin-mocha.sh`. To change them, copy it, edit the `C_*` values
+(24-bit ANSI escapes), and point the plugin at your copy:
+
+```tmux
+set -g @which-key-theme '~/.config/tmux-which-key/mytheme.sh'
+```
+
+A bare name (no `/`) loads `themes/<name>.sh` from the plugin.
 
 ### Custom Config File
 
