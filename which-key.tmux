@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tmux-which-key - LazyVim-style which-key popup for tmux
+# tmux-which-key - which-key popup for tmux
 # Plugin entry point (sourced by TPM)
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tmux-which-key - LazyVim-style which-key popup for tmux
+# tmux-which-key - which-key popup for tmux
 # Usage: which-key.sh --open --client <name> <pane_id>
 #            Builds the menu, sizes a popup to fit it and opens it (what which-key.tmux binds).
 #        which-key.sh [--config <path>] [--theme <name|path>] [--client <name>] <pane_id>
@@ -187,7 +187,7 @@ else
     exit 1
 fi
 
-# Layout: up to MAX_COLS columns of "key → label", packed to the content like nvim's which-key
+# Layout: up to MAX_COLS columns of "key → label", packed to the content
 MAX_COLS=4
 GAP=4
 MAX_DESC=28
