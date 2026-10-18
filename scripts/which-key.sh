@@ -206,12 +206,98 @@ build_from_tmux() {
                     items: [$b[] | select(.t == $t) | leaf | .icon = $t]}])}'
 }
 
+# Extras: hand-written groups (git, ...) merged into the live menu.
+# @which-key-extras <path>|none > XDG extras.json > plugin configs/extras.json
+resolve_extras() {
+    local opt
+    opt=$(get_tmux_option "@which-key-extras" "")
+    opt="${opt/#\~/$HOME}"
+    case "$opt" in
+        none|off) return ;;
+        "") ;;
+        *) echo "$opt"; return ;;
+    esac
+    local xdg="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-which-key/extras.json"
+    if [[ -f "$xdg" ]]; then echo "$xdg"; else echo "$PLUGIN_DIR/configs/extras.json"; fi
+}
+
+# Extras take their keys first; a live group whose key is taken moves to the first free one
+# (its own key, its initial, the capital initial, then a-z A-Z 0-9). Entries whose
+# "requires" program is not installed are dropped. Groups pass their icon to their items.
+merge_extras() {
+    local file missing=() req
+    file=$(resolve_extras)
+    [[ -z "$file" ]] && { cat; return; }
+    [[ -f "$file" ]] || die "extras not found: $file"
+    jq -e '.items | type == "array"' "$file" >/dev/null 2>&1 || die "extras has no valid items array: $file"
+    while read -r req; do
+        [[ -n "$req" ]] && ! command -v "$req" >/dev/null && missing+=("$req")
+    done < <(jq -r '.. | objects | .requires? // empty' "$file" | sort -u)
+    jq --slurpfile x "$file" --args '
+        $ARGS.positional as $missing
+        | def drop: del(.. | objects | select((.requires? // null) as $r | $r != null and any($missing[]; . == $r)));
+          def candidates: [.key, (.description[:1] | ascii_downcase), (.description[:1] | ascii_upcase)]
+              + ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" | split(""));
+          ($x[0] | drop | .items
+            | map(if .type == "group" then (.icon //= (.description | ascii_downcase)) | .icon as $i | .items |= map(.icon //= $i) else . end)) as $e
+          | reduce .items[] as $g ({taken: [$e[].key], out: []};
+                . as $acc
+                | ($g | candidates | map(select(. as $c | any($acc.taken[]; . == $c) | not)) | first) as $k
+                | .taken += [$k] | .out += [$g | .key = $k])
+          | {items: ($e + .out)}' "${missing[@]}"
+}
+
+# tmux.conf overrides, applied last (to the live or static menu):
+#   set -g @which-key-group-g 'Git'                  add or rename root group g ('none' removes it)
+#   set -g @which-key-g-s     'Status : git status'  entry s in group g ('none' removes it)
+#   set -g @which-key-root-f  'Files : popup:yazi'   top-level entry f
+# A command is typed into the pane and run; prefix it with tmux:, popup: or run: for the other types.
+apply_tmux_overrides() {
+    local names name rows=()
+    names=$(tmux show-options -g | awk '$1 ~ /^@which-key-(root-.+|group-.+|.-.+)$/ {print $1}')
+    [[ -z "$names" ]] && { cat; return; }
+    while read -r name; do
+        rows+=("$name" "$(tmux show-options -gqv "$name")")
+    done <<< "$names"
+    jq --args '
+        $ARGS.positional as $a | [range(0; $a | length; 2) | {name: $a[.], value: $a[. + 1]}] as $rows
+        | def entry($v; $k):
+              ($v | capture("^(?<label>.*?)\\s+:\\s+(?<cmd>.*)$") // {label: $v, cmd: ""}) as $p
+              | ($p.cmd | capture("^(?<t>tmux|popup|run):\\s*(?<c>.*)$") // {t: "send", c: $p.cmd}) as $q
+              | {key: $k, description: $p.label}
+                + if $q.t == "send" then {type: "action", command: $q.c, immediate: true}
+                  elif $q.t == "run" then {type: "script", command: $q.c}
+                  else {type: $q.t, command: $q.c} end;
+          def upsert($e): (map(.key) | index($e.key)) as $i | if $i == null then . + [$e] else .[$i] = $e end;
+          def remove($k): map(select(.key != $k));
+          # groups first so their entries have somewhere to go
+          reduce ($rows | sort_by(.name | test("^@which-key-group-") | not))[] as $r (.;
+              ($r.name | sub("^@which-key-"; "")) as $n
+              | if $n | startswith("group-") then
+                    $n[6:] as $k
+                    | if $r.value == "none" then .items |= remove($k)
+                      elif any(.items[]; .key == $k and .type == "group") then
+                          .items |= map(if .key == $k then .description = $r.value else . end)
+                      else .items |= upsert({key: $k, type: "group", description: $r.value,
+                                             icon: ($r.value | ascii_downcase), items: []}) end
+                elif $n | startswith("root-") then
+                    $n[5:] as $k
+                    | if $r.value == "none" then .items |= remove($k) else .items |= upsert(entry($r.value; $k)) end
+                else
+                    $n[:1] as $g | $n[2:] as $k
+                    | (.items | map(.key) | index($g)) as $gi
+                    | if $gi == null or .items[$gi].type != "group" then .   # entry for an undeclared group
+                      elif $r.value == "none" then .items[$gi].items |= remove($k)
+                      else .items[$gi].icon as $ic | .items[$gi].items |= upsert(entry($r.value; $k) + {icon: $ic}) end
+                end)' "${rows[@]}"
+}
+
 if [[ -n "${WK_CONFIG:-}" ]]; then
     CONFIG="$WK_CONFIG"
 elif [[ -z "$CONFIG_FILE" ]]; then
-    CONFIG=$(build_from_tmux)
+    CONFIG=$(build_from_tmux | merge_extras | apply_tmux_overrides)
 elif [[ -f "$CONFIG_FILE" ]]; then
-    CONFIG=$(cat "$CONFIG_FILE")
+    CONFIG=$(apply_tmux_overrides < "$CONFIG_FILE")
 else
     die "config not found: $CONFIG_FILE"
 fi
