@@ -2,24 +2,30 @@
 
 A LazyVim-style which-key popup for tmux. Press a trigger key to open a discoverable, keyboard-driven command menu with nested groups, breadcrumb navigation, and Catppuccin Mocha themed colors.
 
+> **Fork notice:** this is a fork of [Nucc/tmux-which-key](https://github.com/Nucc/tmux-which-key).
+> The upstream menu is a static JSON file. This fork builds the menu from your live tmux key
+> bindings (your `tmux.conf` and plugins), so what you see is what you have bound. Static JSON
+> configs still work as an override. The screenshot below is from upstream and shows the static menu.
+
 ![Catppuccin Mocha theme](https://img.shields.io/badge/theme-Catppuccin%20Mocha-CBA6F7?style=flat-square&labelColor=1E1E2E)
-![tmux](https://img.shields.io/badge/tmux-3.3+-green?style=flat-square)
+![tmux](https://img.shields.io/badge/tmux-3.4+-green?style=flat-square)
 
 ![tmux-which-key screenshot](https://gist.githubusercontent.com/Nucc/2eb50f2a324d8e79a8f231b16cdb3b4f/raw/screenshot.png)
 
 ## Features
 
+- **Dynamic keybindings** - the menu is read from your running tmux, so custom binds appear and run exactly as bound
 - **Discoverable keybindings** - see all available commands at a glance
 - **Nested groups** - organize commands hierarchically (git, window, session, etc.)
 - **Breadcrumb navigation** - always know where you are in the menu tree
 - **Catppuccin Mocha theme** - soft pastel color scheme using 24-bit true color
-- **JSON configuration** - easy to customize, extend, and share
-- **Five action types** - shell commands (with optional auto-execute), tmux commands, external scripts, popups, and nested groups
+- **Optional JSON configuration** - override the live menu with a static, hand-written one
+- **Five action types** (static configs) - shell commands (with optional auto-execute), tmux commands, external scripts, popups, and nested groups
 - **Single-keystroke input** - no Enter key required, instant response
 
 ## Requirements
 
-- tmux >= 3.3 (for `display-popup` support)
+- tmux >= 3.4 (for `display-popup`, `list-keys -F` and `send-keys -K`)
 - `jq` (for JSON parsing)
 - A terminal with true color (24-bit) support
 
@@ -30,7 +36,7 @@ A LazyVim-style which-key popup for tmux. Press a trigger key to open a discover
 Add to your `~/.tmux.conf`:
 
 ```tmux
-set -g @plugin 'Nucc/tmux-which-key'
+set -g @plugin 'TheMasshiro/tmux-which-key'
 ```
 
 Then press `prefix + I` to install.
@@ -40,7 +46,7 @@ Then press `prefix + I` to install.
 Clone the repository:
 
 ```bash
-git clone https://github.com/Nucc/tmux-which-key.git ~/.tmux/plugins/tmux-which-key
+git clone https://github.com/TheMasshiro/tmux-which-key.git ~/.tmux/plugins/tmux-which-key
 ```
 
 Add to your `~/.tmux.conf`:
@@ -63,7 +69,7 @@ If you use Nix and Flakes, you can add this plugin to your [Home Manager](https:
 
 ```nix
 {
-  inputs.tmux-which-key.url = "github:Nucc/tmux-which-key";
+  inputs.tmux-which-key.url = "github:TheMasshiro/tmux-which-key";
 }
 ```
 
@@ -112,7 +118,7 @@ Example:
 set -g @which-key-config '~/.config/tmux-which-key/config.json'
 set -g @which-key-popup-height '20'
 set -g @which-key-popup-width '120'
-set -g @plugin 'Nucc/tmux-which-key'
+set -g @plugin 'TheMasshiro/tmux-which-key'
 ```
 
 ### Custom Key Binding
