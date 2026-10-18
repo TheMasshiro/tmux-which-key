@@ -106,8 +106,8 @@ Set these in your `~/.tmux.conf` before loading the plugin:
 | `@which-key-trigger` | `Space` | Key binding (after prefix) to open the menu |
 | `@which-key-config` | _(auto-detected)_ | Path to a custom JSON config file |
 | `@which-key-theme` | `catppuccin-mocha` | Theme name in `themes/` or path to a theme file |
-| `@which-key-popup-height` | `12` | Popup height in lines |
-| `@which-key-popup-width` | `100%` | Popup width |
+| `@which-key-popup-height` | _(fits the menu)_ | Popup height in lines |
+| `@which-key-popup-width` | _(fits the menu)_ | Popup width |
 | `@which-key-popup-bg` | `#181825` | Popup background color |
 | `@which-key-popup-x` | `C` | Popup X position (`C` = centered) |
 | `@which-key-popup-y` | `#{client_height}` | Popup Y position (`#{client_height}` = bottom of the client) |
@@ -132,14 +132,10 @@ To bind `Ctrl-Space` directly (no prefix needed):
 set -g @which-key-trigger 'None'
 
 # Bind Ctrl-Space directly (-n = no prefix)
-bind-key -n C-Space run-shell 'tmux display-popup -E -h 12 -w 100% -x C -y "#{client_height}" -B -s "bg=#181825" "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh --client #{client_name} #{pane_id}"'
+bind-key -n C-Space run-shell "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh --open --client '#{client_name}' '#{pane_id}'"
 ```
 
-To use a custom config with a manual binding:
-
-```tmux
-bind-key -n C-Space run-shell 'tmux display-popup -E -h 12 -w 100% -x C -y "#{client_height}" -B -s "bg=#181825" "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh --config ~/.config/tmux-which-key/config.json --client #{client_name} #{pane_id}"'
-```
+The manual binding reads the same `@which-key-*` options (config, theme, popup size and position).
 
 ### Themes
 
@@ -164,7 +160,9 @@ The plugin looks for a config file in this order:
 With no config file, the menu is built from the `prefix` key table of the running tmux
 server, so your own binds show up and run as bound. They are grouped by what they do:
 `p` pane, `w` window, `s` session, `b` buffer, `l` layout, `m` misc (so split is `prefix Space p |`). A binding to `switch-client -T <table>`
-becomes a group. Labels come from `bind -N "note"`, otherwise the command text. Needs tmux 3.4+.
+becomes a group. Labels are plain words for known tmux commands ("Split vertical", "Kill pane");
+for anything else a short `bind -N "note"` (up to 24 characters) is used, then the command name.
+The popup is sized to the largest menu level, up to 4 columns. Needs tmux 3.4+.
 `configs/default.json` is kept as an example static config.
 
 To create your own config:

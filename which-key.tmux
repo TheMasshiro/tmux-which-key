@@ -4,57 +4,12 @@
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-get_tmux_option() {
-    local option="$1"
-    local default_value="$2"
-    local value
-    value=$(tmux show-option -gqv "$option")
-    if [[ -n "$value" ]]; then
-        echo "$value"
-    else
-        echo "$default_value"
-    fi
-}
-
 main() {
     local trigger
-    trigger=$(get_tmux_option "@which-key-trigger" "Space")
+    trigger=$(tmux show-option -gqv "@which-key-trigger")
 
-    local config
-    config=$(get_tmux_option "@which-key-config" "")
-
-    local popup_height
-    popup_height=$(get_tmux_option "@which-key-popup-height" "12")
-
-    local popup_width
-    popup_width=$(get_tmux_option "@which-key-popup-width" "100%")
-
-    local popup_bg
-    popup_bg=$(get_tmux_option "@which-key-popup-bg" "#181825")
-
-    local popup_x
-    popup_x=$(get_tmux_option "@which-key-popup-x" "C")
-
-    local popup_y
-    popup_y=$(get_tmux_option "@which-key-popup-y" "#{client_height}")
-
-    local theme
-    theme=$(get_tmux_option "@which-key-theme" "catppuccin-mocha")
-
-    # Build config flag
-    local config_flag=""
-    if [[ -n "$config" ]]; then
-        config_flag="--config $config"
-    fi
-
-    # Build popup command
-    local popup_cmd="tmux display-popup -E"
-    popup_cmd+=" -h $popup_height -w $popup_width"
-    popup_cmd+=" -x $popup_x -y $popup_y"
-    popup_cmd+=" -B -s 'bg=$popup_bg'"
-    popup_cmd+=" '$CURRENT_DIR/scripts/which-key.sh $config_flag --theme $theme --client #{client_name} #{pane_id}'"
-
-    tmux bind-key "$trigger" run-shell "$popup_cmd"
+    # The script reads the other @which-key-* options and sizes the popup to the menu
+    tmux bind-key "${trigger:-Space}" run-shell "'$CURRENT_DIR/scripts/which-key.sh' --open --client '#{client_name}' '#{pane_id}'"
 }
 
 main
