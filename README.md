@@ -1,6 +1,6 @@
 # tmux-which-key
 
-A LazyVim-style which-key popup for tmux. Press a trigger key to open a discoverable, keyboard-driven command menu with nested groups, breadcrumb navigation, and Catppuccin Mocha themed colors.
+A which-key popup for tmux. Press a trigger key to open a discoverable, keyboard-driven command menu with nested groups, breadcrumb navigation, and Catppuccin Mocha themed colors.
 
 > **Fork notice:** this is a fork of [Nucc/tmux-which-key](https://github.com/Nucc/tmux-which-key).
 > The upstream menu is a static JSON file. This fork builds the menu from your live tmux key
@@ -19,7 +19,7 @@ A LazyVim-style which-key popup for tmux. Press a trigger key to open a discover
 - **Nested groups** - organize commands hierarchically (git, window, session, etc.)
 - **Breadcrumb navigation** - always know where you are in the menu tree
 - **Themeable** - colors, popup background, icons, symbols and hint text live in one theme file (Catppuccin Mocha by default)
-- **Icons** - Nerd Font icons per group, like nvim's which-key (on by default; `set -g @which-key-icons off` or `ICONS=0` in the theme turns them off)
+- **Icons** - Nerd Font icons per group (on by default; `set -g @which-key-icons off` or `ICONS=0` in the theme turns them off)
 - **Optional JSON configuration** - override the live menu with a static, hand-written one
 - **Five action types** (static configs) - shell commands (with optional auto-execute), tmux commands, external scripts, popups, and nested groups
 - **Single-keystroke input** - no Enter key required, instant response

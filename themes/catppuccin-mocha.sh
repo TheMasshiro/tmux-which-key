@@ -26,7 +26,7 @@ HINT_BACK="⌫ back"
 
 # Icons (needs a Nerd Font; thin Codicons). ICONS=0 turns the icon column off;
 # set -g @which-key-icons on|off in tmux.conf overrides this.
-# Each group has ICON_<name> and COLOR_<name>; its actions share the icon, like nvim's which-key.
+# Each group has ICON_<name> and COLOR_<name>; its actions share the icon.
 # A static JSON config can set "icon" to one of these names or to a literal glyph.
 ICONS=1
 C_ICON=$'\033[38;2;147;153;178m'      # #9399B2 overlay2 - icon with no COLOR_<name>
