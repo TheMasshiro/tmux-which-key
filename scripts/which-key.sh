@@ -203,7 +203,7 @@ layout() {
     L_WIDTH=$(( L_COLS * cell + (L_COLS - 1) * GAP ))
 }
 
-# Theme: a name in themes/ or a path to a file defining the C_* colors
+# Theme: a name in themes/ or a path to a file defining colors, popup bg, symbols and text
 if [[ "$THEME" == */* ]]; then THEME_FILE="$THEME"; else THEME_FILE="$PLUGIN_DIR/themes/$THEME.sh"; fi
 if [[ ! -f "$THEME_FILE" ]]; then
     echo "Theme not found: $THEME_FILE"
@@ -221,7 +221,7 @@ if [[ -n "$OPEN" ]]; then
         (( L_WIDTH + 6 > w )) && w=$((L_WIDTH + 6))
         (( L_ROWS + 2 > h )) && h=$((L_ROWS + 2))
     done < <(jq -r '[.items, (.. | objects | select(.type? == "group") | .items)][] | select(length > 0)
-        | "\(length) \(map(.key | length) | max) \(map((.description | length) + (if .type == "group" then 1 else 0 end)) | max)"' <<< "$CONFIG")
+        | "\(length) \(map(.key | length) | max) \(map((.description | length) + (if .type == "group" then $g else 0 end)) | max)"' --argjson g "${#ICON_GROUP}" <<< "$CONFIG")
     (( w > cw )) && w=$cw
     (( h > ch )) && h=$ch
     tmux display-popup -E -B -c "$CLIENT" -t "$PANE_ID" \
@@ -229,7 +229,7 @@ if [[ -n "$OPEN" ]]; then
         -h "$(get_tmux_option "@which-key-popup-height" "$h")" \
         -x "$(get_tmux_option "@which-key-popup-x" "C")" \
         -y "$(get_tmux_option "@which-key-popup-y" "#{client_height}")" \
-        -s "bg=$(get_tmux_option "@which-key-popup-bg" "#181825")" \
+        -s "bg=$POPUP_BG" \
         -e "WK_CONFIG=$(jq -c . <<< "$CONFIG")" \
         "$(printf '%q ' "$PLUGIN_DIR/scripts/which-key.sh" --theme "$THEME" --client "$CLIENT" "$PANE_ID")"
     exit 0
@@ -256,9 +256,9 @@ get_current_items() {
 
 get_breadcrumb() {
     local path=".items"
-    local out="root"
+    local out="$TITLE_ROOT"
     for idx in "${NAV_STACK[@]}"; do
-        out+=" » +$(echo "$CONFIG" | jq -r "${path}[${idx}].description")"
+        out+=" $ICON_SEP $ICON_GROUP$(echo "$CONFIG" | jq -r "${path}[${idx}].description")"
         path="${path}[${idx}].items"
     done
     echo "$out"
@@ -273,7 +273,7 @@ render_menu() {
 
     local keys=() types=() descs=() kw=1 dw=1
     while IFS=$'\t' read -r key type desc _cmd; do
-        [[ "$type" == "group" ]] && desc="+$desc"
+        [[ "$type" == "group" ]] && desc="$ICON_GROUP$desc"
         keys+=("$key")
         types+=("$type")
         descs+=("$desc")
@@ -290,15 +290,15 @@ render_menu() {
 
     printf '\033[H'
     # Top border with the breadcrumb in it
-    printf "%s╭─ %s%s%s %s╮%s\033[K\n" "$C_BORDER" "$C_TITLE" "$title" "$C_BORDER" "$(rep ─ $((COLS - ${#title} - 5)))" "$C_R"
+    printf "%s%s%s %s%s%s %s%s%s\033[K\n" "$C_BORDER" "$BORDER_TL" "$BORDER_H" "$C_TITLE" "$title" "$C_BORDER" "$(rep "$BORDER_H" $((COLS - ${#title} - 5)))" "$BORDER_TR" "$C_R"
 
     local row col i
     for ((row = 0; row < box_rows; row++)); do
         if (( row >= num_rows )); then
-            printf "%s│%s%*s%s│%s\033[K\n" "$C_BORDER" "$C_R" $((COLS - 2)) "" "$C_BORDER" "$C_R"
+            printf "%s%s%s%*s%s%s%s\033[K\n" "$C_BORDER" "$BORDER_V" "$C_R" $((COLS - 2)) "" "$C_BORDER" "$BORDER_V" "$C_R"
             continue
         fi
-        printf "%s│%s  " "$C_BORDER" "$C_R"
+        printf "%s%s%s  " "$C_BORDER" "$BORDER_V" "$C_R"
         for ((col = 0; col < num_cols; col++)); do
             i=$((col * num_rows + row))
             if [[ $i -lt $total ]]; then
@@ -307,19 +307,19 @@ render_menu() {
                 local maxd=$((col_w - kw - 4))
                 (( maxd > MAX_DESC )) && maxd=$MAX_DESC
                 d="${d:0:$maxd}"
-                printf "%s%*s%s %s→%s %s%s%s%*s" "$C_KEY" "$kw" "$k" "$C_R" "$C_ARROW" "$C_R" "$dc" "$d" "$C_R" $((col_w - kw - 3 - ${#d})) ""
+                printf "%s%*s%s %s%s%s %s%s%s%*s" "$C_KEY" "$kw" "$k" "$C_R" "$C_ARROW" "$ICON_ARROW" "$C_R" "$dc" "$d" "$C_R" $((col_w - kw - 3 - ${#d})) ""
             else
                 printf "%*s" "$col_w" ""
             fi
         done
-        printf "%*s  %s│%s\033[K\n" $((area - num_cols * col_w)) "" "$C_BORDER" "$C_R"
+        printf "%*s  %s%s%s\033[K\n" $((area - num_cols * col_w)) "" "$C_BORDER" "$BORDER_V" "$C_R"
     done
 
     # Bottom border with the key hints centered in it
-    local hint="esc close"
-    [[ ${#NAV_STACK[@]} -gt 0 ]] && hint+="  ⌫ back"
+    local hint="$HINT_CLOSE"
+    [[ ${#NAV_STACK[@]} -gt 0 ]] && hint+="  $HINT_BACK"
     local left=$(( (COLS - 4 - ${#hint}) / 2 ))
-    printf "%s╰%s %s%s%s %s╯%s\033[J" "$C_BORDER" "$(rep ─ "$left")" "$C_FOOT" "$hint" "$C_BORDER" "$(rep ─ $((COLS - 4 - ${#hint} - left)))" "$C_R"
+    printf "%s%s%s %s%s%s %s%s%s\033[J" "$C_BORDER" "$BORDER_BL" "$(rep "$BORDER_H" "$left")" "$C_FOOT" "$hint" "$C_BORDER" "$(rep "$BORDER_H" $((COLS - 4 - ${#hint} - left)))" "$BORDER_BR" "$C_R"
 }
 
 handle_key() {
