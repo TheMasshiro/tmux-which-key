@@ -19,7 +19,7 @@ A LazyVim-style which-key popup for tmux. Press a trigger key to open a discover
 - **Nested groups** - organize commands hierarchically (git, window, session, etc.)
 - **Breadcrumb navigation** - always know where you are in the menu tree
 - **Themeable** - colors, popup background, icons, symbols and hint text live in one theme file (Catppuccin Mocha by default)
-- **Icons** - Nerd Font icons per group, like nvim's which-key (on by default, `ICONS=0` in the theme turns them off)
+- **Icons** - Nerd Font icons per group, like nvim's which-key (on by default; `set -g @which-key-icons off` or `ICONS=0` in the theme turns them off)
 - **Optional JSON configuration** - override the live menu with a static, hand-written one
 - **Five action types** (static configs) - shell commands (with optional auto-execute), tmux commands, external scripts, popups, and nested groups
 - **Single-keystroke input** - no Enter key required, instant response
@@ -95,7 +95,7 @@ Press `prefix + Space` (default) to open the which-key popup.
 - **Escape** to go back one level or close the menu
 - **Backspace** to go back one level or close the menu
 
-Keys are blue, actions yellow, and groups are mauve with a `+` prefix. Pressing a group key opens its submenu with a breadcrumb showing your navigation path.
+Keys are blue, actions rosewater, and groups are mauve with a `+` prefix. Pressing a group key opens its submenu with a breadcrumb showing your navigation path.
 
 ## Configuration
 
@@ -108,6 +108,7 @@ Set these in your `~/.tmux.conf` before loading the plugin:
 | `@which-key-trigger` | `Space` | Key binding (after prefix) to open the menu |
 | `@which-key-config` | _(auto-detected)_ | Path to a custom JSON config file |
 | `@which-key-theme` | `catppuccin-mocha` | Theme name in `themes/` or path to a theme file |
+| `@which-key-icons` | _(theme's `ICONS`, on)_ | `on` / `off` to show or hide the Nerd Font icons |
 | `@which-key-popup-height` | _(fits the menu)_ | Popup height in lines |
 | `@which-key-popup-width` | _(fits the menu)_ | Popup width |
 | `@which-key-popup-x` | `C` | Popup X position (`C` = centered) |
