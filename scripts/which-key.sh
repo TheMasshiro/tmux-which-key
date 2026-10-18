@@ -9,12 +9,17 @@ trap 'printf "\033[?25h"' EXIT
 PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG_FILE=""
 PANE_ID=""
+CLIENT=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --config)
             CONFIG_FILE="$2"
+            shift 2
+            ;;
+        --client)
+            CLIENT="$2"
             shift 2
             ;;
         *)
@@ -24,7 +29,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Resolve config file: explicit > XDG > user home > plugin default
+# Resolve config file: explicit > XDG > user home > live tmux bindings (CONFIG_FILE stays empty)
 if [[ -z "$CONFIG_FILE" ]]; then
     local_xdg="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-which-key/config.json"
     local_home="$HOME/.tmux-which-key.json"
@@ -32,10 +37,25 @@ if [[ -z "$CONFIG_FILE" ]]; then
         CONFIG_FILE="$local_xdg"
     elif [[ -f "$local_home" ]]; then
         CONFIG_FILE="$local_home"
-    else
-        CONFIG_FILE="$PLUGIN_DIR/configs/default.json"
     fi
 fi
+
+# Build the menu from the prefix key table of the running tmux server.
+# A `switch-client -T <table>` binding becomes a group listing that table (one level).
+# Description is the `bind -N` note, else the command truncated.
+build_from_tmux() {
+    tmux list-keys -F $'#{key_table}\t#{key_string}\t#{key_note}\t#{key_command}' | jq -Rn '
+        [inputs | split("\t") | {t: .[0], k: .[1], n: .[2], c: (.[3:] | join(" "))}] as $b
+        | def desc: if .n != "" then .n else .c[:22] end;
+          def leaf: {key: .k, type: "key", description: desc, command: (.t + " " + .k)};
+          def entry:
+              if (.c | test("^switch-client -T ")) then
+                  (.c | sub("^switch-client -T "; "")) as $t
+                  | {key: .k, type: "group", description: (if .n != "" then .n else $t end),
+                     items: [$b[] | select(.t == $t) | leaf]}
+              else leaf end;
+          {items: [$b[] | select(.t == "prefix") | entry]}'
+}
 
 # Catppuccin Mocha theme colors
 C_KEY=$'\033[38;2;249;226;175m'       # #F9E2AF - yellow
@@ -50,13 +70,18 @@ if [[ -z "$PANE_ID" ]]; then
     exit 1
 fi
 
-if [[ ! -f "$CONFIG_FILE" ]]; then
+if [[ -z "$CONFIG_FILE" ]]; then
+    CONFIG=$(build_from_tmux)
+elif [[ -f "$CONFIG_FILE" ]]; then
+    CONFIG=$(cat "$CONFIG_FILE")
+else
     echo "Config not found: $CONFIG_FILE"
     exit 1
 fi
 
-# Read entire config into memory once
-CONFIG=$(cat "$CONFIG_FILE")
+COLS=$(tput cols 2>/dev/null || echo 100)
+SEP_LINE=$(printf '%*s' $((COLS - 2)) '')
+SEP_LINE=${SEP_LINE// /─}
 
 # Navigation stack (jq path indices)
 NAV_STACK=()
@@ -90,9 +115,7 @@ render_menu() {
 
     # Header
     printf "%s  Which Key%s  %s│%s  %s%s%s\n" "$C_HDR" "$C_R" "$C_SEP" "$C_R" "$C_DESC" "$breadcrumb" "$C_R"
-    printf "%s" "$C_SEP"
-    printf '%.0s─' {1..98}
-    printf "%s\n" "$C_R"
+    printf "%s%s%s\n" "$C_SEP" "$SEP_LINE" "$C_R"
 
     # Parse all items in one jq call
     local keys=() types=() descs=()
@@ -110,7 +133,8 @@ render_menu() {
 
     # Column layout
     local col_width=32
-    local num_cols=3
+    local num_cols=$(( (COLS - 2) / col_width ))
+    [[ $num_cols -lt 1 ]] && num_cols=1
     local num_rows=$(( (total + num_cols - 1) / num_cols ))
 
     for ((row = 0; row < num_rows; row++)); do
@@ -135,9 +159,7 @@ render_menu() {
     done
 
     # Footer
-    printf "\n%s" "$C_SEP"
-    printf '%.0s─' {1..98}
-    printf "%s\n" "$C_R"
+    printf "\n%s%s%s\n" "$C_SEP" "$SEP_LINE" "$C_R"
     if [[ ${#NAV_STACK[@]} -gt 0 ]]; then
         printf "  %sesc  close    ⌫  back%s\n" "$C_SEP" "$C_R"
     else
@@ -167,6 +189,13 @@ handle_key() {
                     local pane_path
                     pane_path=$(tmux display-message -t "$PANE_ID" -p '#{pane_current_path}')
                     tmux run-shell -b "sleep 0.1 && tmux display-popup -E -h 80% -w 80% -d '$pane_path' '$command'"
+                    exit 0
+                    ;;
+                key)
+                    local tbl ks
+                    read -r tbl ks <<< "$command"
+                    [[ "$ks" == ";" ]] && ks='\;'
+                    nohup sh -c 'sleep 0.1; tmux switch-client -c "$1" -T "$2" && tmux send-keys -K -c "$1" "$3"' _ "$CLIENT" "$tbl" "$ks" >/dev/null 2>&1 &
                     exit 0
                     ;;
                 tmux)
@@ -221,6 +250,14 @@ while true; do
 
     # Regular key
     if [[ -n "$keypress" ]]; then
+        case "$keypress" in
+            ' ')    keypress=Space ;;
+            $'\t')  keypress=Tab ;;
+            [$'\x01'-$'\x1a'])
+                printf -v n '%d' "'$keypress"
+                printf -v keypress "C-\\x$(printf '%x' $((n + 96)))"
+                ;;
+        esac
         handle_key "$keypress"
     fi
 done

@@ -99,8 +99,8 @@ Set these in your `~/.tmux.conf` before loading the plugin:
 |--------|---------|-------------|
 | `@which-key-trigger` | `Space` | Key binding (after prefix) to open the menu |
 | `@which-key-config` | _(auto-detected)_ | Path to a custom JSON config file |
-| `@which-key-popup-height` | `16` | Popup height in lines |
-| `@which-key-popup-width` | `100` | Popup width in characters |
+| `@which-key-popup-height` | `60%` | Popup height |
+| `@which-key-popup-width` | `100%` | Popup width |
 | `@which-key-popup-bg` | `#181825` | Popup background color |
 | `@which-key-popup-fg` | `#6C7086` | Popup border/foreground color |
 | `@which-key-popup-x` | `C` | Popup X position (`C` = centered) |
@@ -126,13 +126,13 @@ To bind `Ctrl-Space` directly (no prefix needed):
 set -g @which-key-trigger 'None'
 
 # Bind Ctrl-Space directly (-n = no prefix)
-bind-key -n C-Space run-shell 'tmux display-popup -E -h 16 -w 100 -x C -y "#{client_height}" -S "fg=#6C7086" -s "bg=#181825" "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh #{pane_id}"'
+bind-key -n C-Space run-shell 'tmux display-popup -E -h 60% -w 100% -x C -y "#{client_height}" -S "fg=#6C7086" -s "bg=#181825" "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh --client #{client_name} #{pane_id}"'
 ```
 
 To use a custom config with a manual binding:
 
 ```tmux
-bind-key -n C-Space run-shell 'tmux display-popup -E -h 16 -w 100 -x C -y "#{client_height}" -S "fg=#6C7086" -s "bg=#181825" "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh --config ~/.config/tmux-which-key/config.json #{pane_id}"'
+bind-key -n C-Space run-shell 'tmux display-popup -E -h 60% -w 100% -x C -y "#{client_height}" -S "fg=#6C7086" -s "bg=#181825" "~/.tmux/plugins/tmux-which-key/scripts/which-key.sh --config ~/.config/tmux-which-key/config.json --client #{client_name} #{pane_id}"'
 ```
 
 ### Custom Config File
@@ -142,7 +142,12 @@ The plugin looks for a config file in this order:
 1. Path set via `@which-key-config` tmux option
 2. `$XDG_CONFIG_HOME/tmux-which-key/config.json` (usually `~/.config/tmux-which-key/config.json`)
 3. `~/.tmux-which-key.json`
-4. Plugin's built-in `configs/default.json`
+4. Your live tmux key bindings (default)
+
+With no config file, the menu is built from the `prefix` key table of the running tmux
+server, so your own binds show up and run as bound. A binding to `switch-client -T <table>`
+becomes a group. Labels come from `bind -N "note"`, otherwise the command text. Needs tmux 3.4+.
+`configs/default.json` is kept as an example static config.
 
 To create your own config:
 
