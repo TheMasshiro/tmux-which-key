@@ -5,12 +5,12 @@ A LazyVim-style which-key popup for tmux. Press a trigger key to open a discover
 > **Fork notice:** this is a fork of [Nucc/tmux-which-key](https://github.com/Nucc/tmux-which-key).
 > The upstream menu is a static JSON file. This fork builds the menu from your live tmux key
 > bindings (your `tmux.conf` and plugins), so what you see is what you have bound. Static JSON
-> configs still work as an override. The screenshot below is from upstream and shows the static menu.
+> configs still work as an override.
 
 ![Catppuccin Mocha theme](https://img.shields.io/badge/theme-Catppuccin%20Mocha-CBA6F7?style=flat-square&labelColor=1E1E2E)
 ![tmux](https://img.shields.io/badge/tmux-3.4+-green?style=flat-square)
 
-![tmux-which-key screenshot](https://gist.githubusercontent.com/Nucc/2eb50f2a324d8e79a8f231b16cdb3b4f/raw/screenshot.png)
+![tmux-which-key screenshot](docs/screenshot.png)
 
 ## Features
 
