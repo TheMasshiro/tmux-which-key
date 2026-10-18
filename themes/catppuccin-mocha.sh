@@ -23,3 +23,16 @@ BORDER_TL="╭" BORDER_TR="╮" BORDER_BL="╰" BORDER_BR="╯" BORDER_H="─" B
 TITLE_ROOT="root"
 HINT_CLOSE="esc close"
 HINT_BACK="⌫ back"
+
+# Icons (needs a Nerd Font). ICONS=0 turns the icon column off.
+# Each group has ICON_<name> and COLOR_<name>; its actions share the icon, like nvim's which-key.
+# A static JSON config can set "icon" to one of these names or to a literal glyph.
+ICONS=1
+C_ICON=$'\033[38;2;147;153;178m'      # #9399B2 overlay2 - icon with no COLOR_<name>
+ICON_pane=""     COLOR_pane=$'\033[38;2;137;180;250m'      # columns         blue
+ICON_window=""   COLOR_window=$'\033[38;2;166;227;161m'    # window-maximize green
+ICON_session=""  COLOR_session=$'\033[38;2;250;179;135m'   # desktop         peach
+ICON_buffer=""   COLOR_buffer=$'\033[38;2;249;226;175m'    # clipboard       yellow
+ICON_layout=""   COLOR_layout=$'\033[38;2;148;226;213m'    # th-large        teal
+ICON_misc=""     COLOR_misc=$'\033[38;2;147;153;178m'      # cog             overlay2
+ICON_move=""     COLOR_move=$'\033[38;2;245;194;231m'      # arrows          pink

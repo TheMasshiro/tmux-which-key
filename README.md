@@ -18,7 +18,8 @@ A LazyVim-style which-key popup for tmux. Press a trigger key to open a discover
 - **Discoverable keybindings** - see all available commands at a glance
 - **Nested groups** - organize commands hierarchically (git, window, session, etc.)
 - **Breadcrumb navigation** - always know where you are in the menu tree
-- **Themeable** - colors, popup background, symbols and hint text live in one theme file (Catppuccin Mocha by default)
+- **Themeable** - colors, popup background, icons, symbols and hint text live in one theme file (Catppuccin Mocha by default)
+- **Icons** - Nerd Font icons per group, like nvim's which-key (on by default, `ICONS=0` in the theme turns them off)
 - **Optional JSON configuration** - override the live menu with a static, hand-written one
 - **Five action types** (static configs) - shell commands (with optional auto-execute), tmux commands, external scripts, popups, and nested groups
 - **Single-keystroke input** - no Enter key required, instant response
@@ -28,6 +29,7 @@ A LazyVim-style which-key popup for tmux. Press a trigger key to open a discover
 - tmux >= 3.4 (for `display-popup`, `list-keys -F` and `send-keys -K`)
 - `jq` (for JSON parsing)
 - A terminal with true color (24-bit) support
+- A [Nerd Font](https://www.nerdfonts.com/) for the icons (or set `ICONS=0` in the theme)
 
 ## Installation
 
@@ -148,6 +150,9 @@ Everything visual lives in a theme file. The default is `themes/catppuccin-mocha
 | `ICON_ARROW`, `ICON_GROUP`, `ICON_SEP` | `→`, `+`, `»` |
 | `BORDER_TL` `BORDER_TR` `BORDER_BL` `BORDER_BR` `BORDER_H` `BORDER_V` | Box corners and edges |
 | `TITLE_ROOT`, `HINT_CLOSE`, `HINT_BACK` | `root`, `esc close`, `⌫ back` |
+| `ICONS` | `1` shows a Nerd Font icon before each label, `0` hides the icon column |
+| `ICON_<group>`, `COLOR_<group>` | Icon and color for a group and its actions (`pane`, `window`, `session`, `buffer`, `layout`, `misc`, or a key-table name like `move`) |
+| `C_ICON` | Color for icons without a `COLOR_<group>` |
 
 Colors are 24-bit ANSI escapes (`$'\033[38;2;R;G;Bm'`); symbols must be one column wide.
 To customize, copy the file, edit it, and point the plugin at your copy:
@@ -196,6 +201,7 @@ The config file is a JSON object with a top-level `items` array. Each item has:
 | `command` | string | for non-groups | Command to execute |
 | `items` | array | for groups | Nested items in this group |
 | `immediate` | boolean | no | For `action` type: also press Enter after pasting (default: `false`) |
+| `icon` | string | no | Theme icon name (e.g. `pane`, reads `ICON_pane`) or a literal one-column glyph |
 
 ### Action Types
 

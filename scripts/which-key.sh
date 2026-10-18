@@ -167,13 +167,13 @@ build_from_tmux() {
           [$b[] | select(.t == "prefix")] as $p
           | {items: (
               [[["pane","p"],["window","w"],["session","s"],["buffer","b"],["layout","l"],["misc","m"]][] as [$n, $k]
-               | [$p[] | select((is_table | not) and cat == $n) | leaf] as $i
+               | [$p[] | select((is_table | not) and cat == $n) | leaf | .icon = $n] as $i
                | select($i | length > 0)
-               | {key: $k, type: "group", description: ($n | cap), items: $i}]
+               | {key: $k, type: "group", description: ($n | cap), icon: $n, items: $i}]
               + [$p[] | select(is_table)
                  | (.c | sub("^switch-client -T "; "")) as $t
-                 | {key: .k, type: "group", description: ($t | pretty),
-                    items: [$b[] | select(.t == $t) | leaf]}])}'
+                 | {key: .k, type: "group", description: ($t | pretty), icon: $t,
+                    items: [$b[] | select(.t == $t) | leaf | .icon = $t]}])}'
 }
 
 if [[ -n "${WK_CONFIG:-}" ]]; then
@@ -195,7 +195,7 @@ MAX_DESC=28
 # Sets L_COLS/L_ROWS/L_WIDTH for n items with key width kw and label width dw within avail columns
 layout() {
     local n=$1 kw=$2 dw=$(( $3 < MAX_DESC ? $3 : MAX_DESC )) avail=$4
-    local cell=$((kw + 3 + dw))
+    local cell=$((kw + 3 + ICON_W + dw))
     L_COLS=$(( n < MAX_COLS ? n : MAX_COLS ))
     while (( L_COLS > 1 && L_COLS * cell + (L_COLS - 1) * GAP > avail )); do ((L_COLS--)); done
     (( L_COLS < 1 )) && L_COLS=1
@@ -209,8 +209,24 @@ if [[ ! -f "$THEME_FILE" ]]; then
     echo "Theme not found: $THEME_FILE"
     exit 1
 fi
+ICONS=0
+C_ICON=""
 source "$THEME_FILE"
 C_R=$'\033[0m'
+ICON_W=$(( ICONS ? 2 : 0 ))   # icon glyph + space
+
+# Sets IC/IC_COLOR for an item's icon field: a theme name (ICON_<name>/COLOR_<name>) or a literal glyph
+icon_of() {
+    IC="" IC_COLOR="$C_ICON"
+    [[ "$1" == "-" ]] && return
+    if [[ "$1" =~ ^[A-Za-z0-9_]+$ ]]; then
+        local i="ICON_$1" c="COLOR_$1"
+        IC="${!i:-}"
+        IC_COLOR="${!c:-$C_ICON}"
+    else
+        IC="$1"
+    fi
+}
 
 # Open mode: size the popup to the biggest menu level, then run this script inside it
 if [[ -n "$OPEN" ]]; then
@@ -251,7 +267,7 @@ get_current_items() {
     for idx in "${NAV_STACK[@]}"; do
         path="${path}[${idx}].items"
     done
-    echo "$CONFIG" | jq -r "${path}[] | [.key, .type, .description, (.command // \"\"), (if .immediate then \"true\" else \"false\" end)] | @tsv" 2>/dev/null
+    echo "$CONFIG" | jq -r "${path}[] | [.key, .type, .description, (.icon // \"-\"), (.command // \"\"), (if .immediate then \"true\" else \"false\" end)] | @tsv" 2>/dev/null
 }
 
 get_breadcrumb() {
@@ -272,11 +288,13 @@ render_menu() {
     title=$(get_breadcrumb)
 
     local keys=() types=() descs=() kw=1 dw=1
-    while IFS=$'\t' read -r key type desc _cmd; do
+    local icons=()
+    while IFS=$'\t' read -r key type desc icon _rest; do
         [[ "$type" == "group" ]] && desc="$ICON_GROUP$desc"
         keys+=("$key")
         types+=("$type")
         descs+=("$desc")
+        icons+=("$icon")
         (( ${#key} > kw )) && kw=${#key}
         (( ${#desc} > dw )) && dw=${#desc}
     done < <(get_current_items)
@@ -304,10 +322,15 @@ render_menu() {
             if [[ $i -lt $total ]]; then
                 local k="${keys[$i]}" d="${descs[$i]}" dc="$C_DESC"
                 [[ "${types[$i]}" == "group" ]] && dc="$C_GRP"
-                local maxd=$((col_w - kw - 4))
+                local maxd=$((col_w - kw - 4 - ICON_W))
                 (( maxd > MAX_DESC )) && maxd=$MAX_DESC
                 d="${d:0:$maxd}"
-                printf "%s%*s%s %s%s%s %s%s%s%*s" "$C_KEY" "$kw" "$k" "$C_R" "$C_ARROW" "$ICON_ARROW" "$C_R" "$dc" "$d" "$C_R" $((col_w - kw - 3 - ${#d})) ""
+                printf "%s%*s%s %s%s%s " "$C_KEY" "$kw" "$k" "$C_R" "$C_ARROW" "$ICON_ARROW" "$C_R"
+                if (( ICONS )); then
+                    icon_of "${icons[$i]}"
+                    printf "%s%-1s%s " "$IC_COLOR" "${IC:- }" "$C_R"
+                fi
+                printf "%s%s%s%*s" "$dc" "$d" "$C_R" $((col_w - kw - 3 - ICON_W - ${#d})) ""
             else
                 printf "%*s" "$col_w" ""
             fi
@@ -326,7 +349,7 @@ handle_key() {
     local keypress="$1"
     local i=0
 
-    while IFS=$'\t' read -r key type desc command immediate; do
+    while IFS=$'\t' read -r key type desc _icon command immediate; do
         if [[ "$key" == "$keypress" ]]; then
             case "$type" in
                 group)
