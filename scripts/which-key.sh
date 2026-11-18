@@ -2,53 +2,30 @@
 # tmux-which-key - which-key popup for tmux
 # Usage: which-key.sh --open --client <name> <pane_id>
 #            Builds the menu, sizes a popup to fit it and opens it (what which-key.tmux binds).
-#        which-key.sh [--config <path>] [--theme <name|path>] [--client <name>] <pane_id>
-#            Runs the menu in the current terminal (inside the popup).
+#        WK_MENU=<menu> which-key.sh --theme <file> --icons <0|1> --size <cols> <rows> --client <name> <pane_id>
+#            Runs the menu inside the popup.
+# Kept light on purpose: opening is one tmux call and one awk pass, the popup spawns nothing until a key runs.
 
 set -uo pipefail
 
-PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-CONFIG_FILE=""
-PANE_ID=""
-CLIENT=""
-THEME=""
-OPEN=""
-REPLAY_TABLE=""
-REPLAY_KEY=""
+PLUGIN_DIR="$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)"
+PANE_ID="" CLIENT="" THEME_FILE="" ICONS=1 COLS="" ROWS="" OPEN="" REPLAY_TABLE="" REPLAY_KEY=""
+US=$'\037'   # field separator of the menu lines (see menu.awk)
 
-# Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --config)
-            CONFIG_FILE="$2"
-            shift 2
-            ;;
-        --client)
-            CLIENT="$2"
-            shift 2
-            ;;
-        --theme)
-            THEME="$2"
-            shift 2
-            ;;
-        --open)
-            OPEN=1
-            shift
-            ;;
-        --replay)
-            REPLAY_TABLE="$2"
-            REPLAY_KEY="$3"
-            shift 3
-            ;;
-        *)
-            PANE_ID="$1"
-            shift
-            ;;
+        --client) CLIENT="$2"; shift 2 ;;
+        --theme)  THEME_FILE="$2"; shift 2 ;;
+        --icons)  ICONS="$2"; shift 2 ;;
+        --size)   COLS="$2" ROWS="$3"; shift 3 ;;
+        --open)   OPEN=1; shift ;;
+        --replay) REPLAY_TABLE="$2" REPLAY_KEY="$3"; shift 3 ;;
+        *)        PANE_ID="$1"; shift ;;
     esac
 done
 
 if [[ -z "$PANE_ID" ]]; then
-    echo "Usage: which-key.sh [--open] [--config <path>] [--theme <name|path>] [--client <name>] <pane_id>"
+    echo "Usage: which-key.sh --open --client <name> <pane_id>"
     exit 1
 fi
 
@@ -58,8 +35,6 @@ die() {
     tmux display-message -l ${CLIENT:+-c "$CLIENT"} "tmux-which-key: $1"
     exit 1
 }
-
-[[ -z "$CLIENT" ]] && CLIENT=$(tmux display-message -p '#{client_name}')
 
 # Replay mode: run the real binding once the popup has closed (started by the `key` action below).
 # Its error, e.g. "can't find window: 3", is shown like tmux shows it for a typed key.
@@ -72,236 +47,6 @@ if [[ -n "$REPLAY_TABLE" ]]; then
     fi
     exit 0
 fi
-
-command -v jq >/dev/null || die "jq is required but not installed"
-
-get_tmux_option() {
-    local value
-    value=$(tmux show-option -gqv "$1")
-    echo "${value:-$2}"
-}
-
-[[ -z "$THEME" ]] && THEME=$(get_tmux_option "@which-key-theme" "catppuccin-mocha")
-[[ -z "$CONFIG_FILE" ]] && CONFIG_FILE=$(get_tmux_option "@which-key-config" "")
-THEME="${THEME/#\~/$HOME}"
-CONFIG_FILE="${CONFIG_FILE/#\~/$HOME}"
-
-# Resolve config file: explicit/@which-key-config > XDG > user home > live tmux bindings (CONFIG_FILE stays empty)
-if [[ -z "$CONFIG_FILE" ]]; then
-    local_xdg="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-which-key/config.json"
-    local_home="$HOME/.tmux-which-key.json"
-    if [[ -f "$local_xdg" ]]; then
-        CONFIG_FILE="$local_xdg"
-    elif [[ -f "$local_home" ]]; then
-        CONFIG_FILE="$local_home"
-    fi
-fi
-
-# Build the menu from the prefix key table of the running tmux server.
-# Bindings are grouped by the tmux command family they run (pane, window, ...);
-# a `switch-client -T <table>` binding becomes a group listing that table (one level).
-# Labels come from a table of known commands, then a short `bind -N` note, then the command name.
-build_from_tmux() {
-    tmux list-keys -F $'#{key_table}\t#{key_string}\t#{key_note}\t#{key_command}' | jq -Rn '
-        [inputs | split("\t") | {t: .[0], k: .[1], n: .[2], c: (.[3:] | join(" "))}]
-        # keys the popup cannot read (arrows, Alt, Shift, ...) and send-prefix are left out
-        | map(select((.k | test("^(M-|S-|C-M-|C-(Up|Down|Left|Right)$|(Up|Down|Left|Right|DC|PPage|NPage|Home|End|BTab)$)") | not) and .c != "send-prefix")) as $b
-        | def cap: (.[:1] | ascii_upcase) + .[1:];
-          def pretty: gsub("[-_]"; " ") | cap;
-          def dir: {L: "left", R: "right", U: "up", D: "down"}[capture(" -(?<d>[LRUD])\\b").d];
-          def name_of:
-              .c as $c | .n as $n
-              | if   $c | test("which-key") then "Which key"
-                elif $c | test("source-file") then "Reload config"
-                elif $c | test("^split-window.* -h\\b") then "Split vertical"
-                elif $c | test("^split-window") then "Split horizontal"
-                elif $c | test("^select-pane -[LRUD]\\b") then "Pane " + ($c | dir)
-                elif $c | test("^select-pane -m") then "Mark pane"
-                elif $c | test("^select-pane -M") then "Unmark pane"
-                elif $c | test("select-pane -T") then "Pane title"
-                elif $c | test("^resize-pane -Z") then "Zoom"
-                elif $c | test("^resize-pane -[LRUD]\\b") then "Resize " + ($c | dir)
-                elif $c | test("^resize-pane -x \"100%\" -y \"100%\"") then "Fill window"
-                elif $c | test("^move-pane -P ") then ($c | capture("-P (?<x>[a-z-]+)").x | pretty)
-                elif $c | test("^if-shell.*Move & Resize") then "Move + resize menu"
-                elif $c | test("^if-shell.*Move") then "Move menu"
-                elif $c | test("^if-shell.*pane_floating_flag.*join-pane") then "Toggle float"
-                elif $c == "new-pane" then "Float pane"
-                elif $c | test("^kill-pane|confirm-before.*kill-pane") then "Kill pane"
-                elif $c | test("^last-pane") then "Last pane"
-                elif $c | test("^break-pane") then "Break pane"
-                elif $c | test("^join-pane") then "Join pane"
-                elif $c | test("^swap-pane -U") then "Swap up"
-                elif $c | test("^swap-pane -D") then "Swap down"
-                elif $c | test("^swap-pane") then "Swap marked"
-                elif $c | test("^display-panes") then "Pane numbers"
-                elif $c | test("^respawn-pane") then "Respawn pane"
-                elif $c | test("^select-window -t :=[0-9]+$") then "Window " + ($c | capture(":=(?<n>[0-9]+)").n)
-                elif $c | test("select-window") then "Go to window"
-                elif $c | test("^new-window") then "New window"
-                elif $c | test("^next-window -a") then "Next alert"
-                elif $c | test("^previous-window -a") then "Prev alert"
-                elif $c | test("^next-window") then "Next window"
-                elif $c | test("^previous-window") then "Prev window"
-                elif $c | test("^last-window") then "Last window"
-                elif $c | test("^rotate-window -D") then "Rotate reverse"
-                elif $c | test("^rotate-window") then "Rotate panes"
-                elif $c | test("^switch-client -p") then "Prev session"
-                elif $c | test("^switch-client -n") then "Next session"
-                elif $c | test("^switch-client -l") then "Last session"
-                elif $c | test("^choose-tree.* -[A-Za-z]*s") then "Choose session"
-                elif $c | test("^choose-tree.* -[A-Za-z]*w") then "Choose window"
-                elif $c | test("^choose-tree") then "Choose tree"
-                elif $c | test("^choose-client") then "Choose client"
-                elif $c | test("^detach-client") then "Detach"
-                elif $c | test("^suspend-client") then "Suspend"
-                elif $c | test("^refresh-client") then "Refresh"
-                elif $c | test("^display-menu.*window_index") then "Window menu"
-                elif $c | test("^display-menu.*pane_index") then "Pane menu"
-                elif $c | test("^select-layout -E") then "Spread evenly"
-                elif $c | test("^select-layout ") then ($c | sub("^select-layout "; "") | pretty)
-                elif $c | test("^next-layout") then "Next layout"
-                elif $c | test("^copy-mode -u") then "Scroll up"
-                elif $c | test("^copy-mode") then "Copy mode"
-                elif $c | test("^paste-buffer") then "Paste"
-                elif $c | test("^list-buffers") then "List buffers"
-                elif $c | test("^delete-buffer") then "Delete buffer"
-                elif $c | test("^choose-buffer") then "Choose buffer"
-                elif $c | test("^command-prompt.*list-keys") then "Describe key"
-                elif $c | test("^list-keys") then "List keys"
-                elif $c | test("^command-prompt.*rename-(window|session)") then "Rename " + ($c | capture("rename-(?<x>window|session)").x)
-                elif $c | test("^command-prompt.*move-window") then "Move window"
-                elif $c | test("^command-prompt.*find-window") then "Find window"
-                elif $c | test("^confirm-before.*kill-") then "Kill " + ($c | capture("kill-(?<x>[a-z]+)").x)
-                elif $c | test("^command-prompt") then "Command prompt"
-                elif $c | test("^display-message$") then "Info"
-                elif $c | test("^clock-mode") then "Clock"
-                elif $c | test("^show-messages") then "Messages"
-                elif $c | test("^customize-mode") then "Options"
-                elif $c | test("^send-keys ") then "Send " + ($c | split(" ")[1])
-                elif $n != "" and ($n | length) <= 24 then $n
-                elif $c | test("^run-shell") then ($c | capture("(?<x>[A-Za-z0-9_-]+)(\\.sh)?[\"\\x27 ]*$") // {x: "Run script"} | .x | pretty)
-                else $c | split(" ")[0] | pretty end;
-          def leaf: {key: .k, type: "key", description: name_of, command: (.t + " " + .k)};
-          def is_table: .c | test("^switch-client -T ");
-          # shortcut: first word decides the group, wrappers use the whole command, add a family here if one lands in misc
-          def cat:
-              (.c | split(" ")[0]) as $w
-              | (if $w | IN("confirm-before", "command-prompt", "if-shell") then .c else $w end) as $x
-              | if   $x | test("pane|split-window|clear-history") then "pane"
-                elif $x | test("window|rotate") then "window"
-                elif $x | test("session|client|choose-tree") then "session"
-                elif $x | test("buffer|copy-mode") then "buffer"
-                elif $x | test("layout") then "layout"
-                else "misc" end;
-          [$b[] | select(.t == "prefix")] as $p
-          | {items: (
-              [[["pane","p"],["window","w"],["session","s"],["buffer","b"],["layout","l"],["misc","m"]][] as [$n, $k]
-               | [$p[] | select((is_table | not) and cat == $n) | leaf | .icon = $n] as $i
-               | select($i | length > 0)
-               | {key: $k, type: "group", description: ($n | cap), icon: $n, items: $i}]
-              + [$p[] | select(is_table)
-                 | (.c | sub("^switch-client -T "; "")) as $t
-                 | {key: .k, type: "group", description: ($t | pretty), icon: $t,
-                    items: [$b[] | select(.t == $t) | leaf | .icon = $t]}])}'
-}
-
-# Extras: hand-written groups (git, ...) merged into the live menu.
-# @which-key-extras <path>|none > XDG extras.json > plugin configs/extras.json
-resolve_extras() {
-    local opt
-    opt=$(get_tmux_option "@which-key-extras" "")
-    opt="${opt/#\~/$HOME}"
-    case "$opt" in
-        none|off) return ;;
-        "") ;;
-        *) echo "$opt"; return ;;
-    esac
-    local xdg="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-which-key/extras.json"
-    if [[ -f "$xdg" ]]; then echo "$xdg"; else echo "$PLUGIN_DIR/configs/extras.json"; fi
-}
-
-# Extras take their keys first; a live group whose key is taken moves to the first free one
-# (its own key, its initial, the capital initial, then a-z A-Z 0-9). Entries whose
-# "requires" program is not installed are dropped. Groups pass their icon to their items.
-merge_extras() {
-    local file missing=() req
-    file=$(resolve_extras)
-    [[ -z "$file" ]] && { cat; return; }
-    [[ -f "$file" ]] || die "extras not found: $file"
-    jq -e '.items | type == "array"' "$file" >/dev/null 2>&1 || die "extras has no valid items array: $file"
-    while read -r req; do
-        [[ -n "$req" ]] && ! command -v "$req" >/dev/null && missing+=("$req")
-    done < <(jq -r '.. | objects | .requires? // empty' "$file" | sort -u)
-    jq --slurpfile x "$file" --args '
-        $ARGS.positional as $missing
-        | def drop: del(.. | objects | select((.requires? // null) as $r | $r != null and any($missing[]; . == $r)));
-          def candidates: [.key, (.description[:1] | ascii_downcase), (.description[:1] | ascii_upcase)]
-              + ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" | split(""));
-          ($x[0] | drop | .items
-            | map(if .type == "group" then (.icon //= (.description | ascii_downcase)) | .icon as $i | .items |= map(.icon //= $i) else . end)) as $e
-          | reduce .items[] as $g ({taken: [$e[].key], out: []};
-                . as $acc
-                | ($g | candidates | map(select(. as $c | any($acc.taken[]; . == $c) | not)) | first) as $k
-                | .taken += [$k] | .out += [$g | .key = $k])
-          | {items: ($e + .out)}' "${missing[@]}"
-}
-
-# tmux.conf overrides, applied last (to the live or static menu):
-#   set -g @which-key-group-g 'Git'                  add or rename root group g ('none' removes it)
-#   set -g @which-key-g-s     'Status : git status'  entry s in group g ('none' removes it)
-#   set -g @which-key-root-f  'Files : popup:yazi'   top-level entry f
-# A command is typed into the pane and run; prefix it with tmux:, popup: or run: for the other types.
-apply_tmux_overrides() {
-    local names name rows=()
-    names=$(tmux show-options -g | awk '$1 ~ /^@which-key-(root-.+|group-.+|.-.+)$/ {print $1}')
-    [[ -z "$names" ]] && { cat; return; }
-    while read -r name; do
-        rows+=("$name" "$(tmux show-options -gqv "$name")")
-    done <<< "$names"
-    jq --args '
-        $ARGS.positional as $a | [range(0; $a | length; 2) | {name: $a[.], value: $a[. + 1]}] as $rows
-        | def entry($v; $k):
-              ($v | capture("^(?<label>.*?)\\s+:\\s+(?<cmd>.*)$") // {label: $v, cmd: ""}) as $p
-              | ($p.cmd | capture("^(?<t>tmux|popup|run):\\s*(?<c>.*)$") // {t: "send", c: $p.cmd}) as $q
-              | {key: $k, description: $p.label}
-                + if $q.t == "send" then {type: "action", command: $q.c, immediate: true}
-                  elif $q.t == "run" then {type: "script", command: $q.c}
-                  else {type: $q.t, command: $q.c} end;
-          def upsert($e): (map(.key) | index($e.key)) as $i | if $i == null then . + [$e] else .[$i] = $e end;
-          def remove($k): map(select(.key != $k));
-          # groups first so their entries have somewhere to go
-          reduce ($rows | sort_by(.name | test("^@which-key-group-") | not))[] as $r (.;
-              ($r.name | sub("^@which-key-"; "")) as $n
-              | if $n | startswith("group-") then
-                    $n[6:] as $k
-                    | if $r.value == "none" then .items |= remove($k)
-                      elif any(.items[]; .key == $k and .type == "group") then
-                          .items |= map(if .key == $k then .description = $r.value else . end)
-                      else .items |= upsert({key: $k, type: "group", description: $r.value,
-                                             icon: ($r.value | ascii_downcase), items: []}) end
-                elif $n | startswith("root-") then
-                    $n[5:] as $k
-                    | if $r.value == "none" then .items |= remove($k) else .items |= upsert(entry($r.value; $k)) end
-                else
-                    $n[:1] as $g | $n[2:] as $k
-                    | (.items | map(.key) | index($g)) as $gi
-                    | if $gi == null or .items[$gi].type != "group" then .   # entry for an undeclared group
-                      elif $r.value == "none" then .items[$gi].items |= remove($k)
-                      else .items[$gi].icon as $ic | .items[$gi].items |= upsert(entry($r.value; $k) + {icon: $ic}) end
-                end)' "${rows[@]}"
-}
-
-if [[ -n "${WK_CONFIG:-}" ]]; then
-    CONFIG="$WK_CONFIG"
-elif [[ -z "$CONFIG_FILE" ]]; then
-    CONFIG=$(build_from_tmux | merge_extras | apply_tmux_overrides)
-elif [[ -f "$CONFIG_FILE" ]]; then
-    CONFIG=$(apply_tmux_overrides < "$CONFIG_FILE")
-else
-    die "config not found: $CONFIG_FILE"
-fi
-jq -e '.items | type == "array"' >/dev/null 2>&1 <<< "$CONFIG" || die "config has no valid items array: ${CONFIG_FILE:-live bindings}"
 
 # Layout: up to MAX_COLS columns of "key → label", packed to the content
 MAX_COLS=4
@@ -319,17 +64,80 @@ layout() {
     L_WIDTH=$(( L_COLS * cell + (L_COLS - 1) * GAP ))
 }
 
-# Theme: a name in themes/ or a path to a file defining colors, popup bg, symbols and text
-if [[ "$THEME" == */* ]]; then THEME_FILE="$THEME"; else THEME_FILE="$PLUGIN_DIR/themes/$THEME.sh"; fi
+# Open mode: build the menu, size the popup to its biggest level, then run this script inside it
+if [[ -n "$OPEN" ]]; then
+    declare -A OPT=()
+    MENU=""
+    while IFS= read -r line; do
+        if [[ "$line" == S"$US"* ]]; then
+            line=${line#S"$US"}
+            OPT[${line%%"$US"*}]=${line#*"$US"}
+        else
+            MENU+=${line#M"$US"}$'\n'
+        fi
+    done < <(tmux display-message -p -c "$CLIENT" $'D\t#{client_width}\t#{client_height}' \; \
+                  list-keys -F $'K\t#{key_table}\t#{key_string}\t#{key_note}\t#{key_command}' \; \
+                  show-options -g | awk -f "$PLUGIN_DIR/scripts/menu.awk")
+    [[ -n "${OPT[client_width]:-}" ]] || die "could not read the tmux bindings"
+
+    theme=${OPT[theme]:-catppuccin-mocha}
+    theme=${theme/#\~/$HOME}
+    if [[ "$theme" == */* ]]; then THEME_FILE="$theme"; else THEME_FILE="$PLUGIN_DIR/themes/$theme.sh"; fi
+    [[ -f "$THEME_FILE" ]] || die "theme not found: $THEME_FILE"
+    source "$THEME_FILE"
+    case "${OPT[icons]:-on}" in off|0|no|false) ICONS=0 ;; esac
+    ICON_W=$(( ICONS ? 2 : 0 ))   # icon glyph + space
+
+    # Per level: item count, widest key, widest label
+    declare -A n=() kw=() dw=()
+    while IFS="$US" read -r parent key type label _; do
+        [[ "$type" == group ]] && label="$ICON_GROUP$label"
+        p="_$parent"
+        (( n[$p] = ${n[$p]:-0} + 1 ))
+        (( ${#key} > ${kw[$p]:-0} )) && kw[$p]=${#key}
+        (( ${#label} > ${dw[$p]:-0} )) && dw[$p]=${#label}
+    done <<< "${MENU%$'\n'}"
+    cw=${OPT[client_width]} ch=${OPT[client_height]}
+    w=40 h=0   # 40 leaves room for the breadcrumb and footer
+    for p in "${!n[@]}"; do
+        layout "${n[$p]}" "${kw[$p]}" "${dw[$p]}" $((cw - 6))
+        (( L_WIDTH + 6 > w )) && w=$((L_WIDTH + 6))
+        (( L_ROWS + 2 > h )) && h=$((L_ROWS + 2))
+    done
+    (( w > cw )) && w=$cw
+    (( h > ch )) && h=$ch
+    (( h < 3 )) && h=3   # an empty menu still needs its border and hint
+    pw=${OPT[popup-width]:-$w} ph=${OPT[popup-height]:-$h}
+    # The menu draws to the popup size; for a size like 80% it asks the terminal instead
+    size=()
+    [[ "$pw$ph" =~ ^[0-9]+$ ]] && size=(--size "$pw" "$ph")
+
+    tmux display-popup -E -B -c "$CLIENT" -t "$PANE_ID" -w "$pw" -h "$ph" \
+        -x "${OPT[popup-x]:-C}" -y "${OPT[popup-y]:-#{client_height}}" \
+        -s "bg=$POPUP_BG" -e "WK_MENU=$MENU" \
+        "$(printf '%q ' "$PLUGIN_DIR/scripts/which-key.sh" --theme "$THEME_FILE" --icons "$ICONS" "${size[@]}" --client "$CLIENT" "$PANE_ID")"
+    exit 0
+fi
+
+# Popup mode: everything below runs without starting a process until a key runs something
 [[ -f "$THEME_FILE" ]] || die "theme not found: $THEME_FILE"
 C_ICON=""
 source "$THEME_FILE"
 C_R=$'\033[0m'
-ICONS=1
-case "$(get_tmux_option "@which-key-icons" "on")" in
-    off|0|no|false) ICONS=0 ;;
-esac
-ICON_W=$(( ICONS ? 2 : 0 ))   # icon glyph + space
+ICON_W=$(( ICONS ? 2 : 0 ))
+[[ -z "$COLS" ]] && read -r ROWS COLS < <(stty size)
+
+# Menu items as parallel arrays
+M_PARENT=() M_KEY=() M_TYPE=() M_LABEL=() M_ICON=() M_CMD=()
+while IFS="$US" read -r parent key type label icon cmd; do
+    M_PARENT+=("$parent") M_KEY+=("$key") M_TYPE+=("$type") M_LABEL+=("$label") M_ICON+=("$icon") M_CMD+=("$cmd")
+done <<< "${WK_MENU%$'\n'}"
+
+CUR=""        # key of the open group, "" at the root
+CUR_LABEL=""
+
+printf '\033[?25l\033[2J'
+trap 'printf "\033[?25h"' EXIT
 
 # Sets IC/IC_COLOR for an item's icon field: a theme name (ICON_<name>/COLOR_<name>) or a literal glyph
 icon_of() {
@@ -344,182 +152,121 @@ icon_of() {
     fi
 }
 
-# Open mode: size the popup to the biggest menu level, then run this script inside it
-if [[ -n "$OPEN" ]]; then
-    read -r cw ch < <(tmux display-message -p -c "$CLIENT" '#{client_width} #{client_height}')
-    w=40 h=0   # 40 leaves room for the breadcrumb and footer
-    while read -r n kw dw; do
-        layout "$n" "$kw" "$dw" $((cw - 6))
-        (( L_WIDTH + 6 > w )) && w=$((L_WIDTH + 6))
-        (( L_ROWS + 2 > h )) && h=$((L_ROWS + 2))
-    done < <(jq -r '[.items, (.. | objects | select(.type? == "group") | .items)][] | select(length > 0)
-        | "\(length) \(map(.key | length) | max) \(map((.description | length) + (if .type == "group" then $g else 0 end)) | max)"' --argjson g "${#ICON_GROUP}" <<< "$CONFIG")
-    (( w > cw )) && w=$cw
-    (( h > ch )) && h=$ch
-    (( h < 3 )) && h=3   # an empty menu still needs its border and hint
-    tmux display-popup -E -B -c "$CLIENT" -t "$PANE_ID" \
-        -w "$(get_tmux_option "@which-key-popup-width" "$w")" \
-        -h "$(get_tmux_option "@which-key-popup-height" "$h")" \
-        -x "$(get_tmux_option "@which-key-popup-x" "C")" \
-        -y "$(get_tmux_option "@which-key-popup-y" "#{client_height}")" \
-        -s "bg=$POPUP_BG" \
-        -e "WK_CONFIG=$(jq -c . <<< "$CONFIG")" \
-        "$(printf '%q ' "$PLUGIN_DIR/scripts/which-key.sh" --theme "$THEME" --client "$CLIENT" "$PANE_ID")"
-    exit 0
-fi
-
-printf '\033[?25l\033[2J'
-trap 'printf "\033[?25h"' EXIT
-
-COLS=$(tput cols 2>/dev/null || echo 100)
-ROWS=$(tput lines 2>/dev/null || echo 10)
-
-# Navigation stack (jq path indices)
-NAV_STACK=()
-
-# Get current items as tab-separated lines: key\ttype\tdescription\tcommand\timmediate
-# Single jq call per menu level instead of per-item
-get_current_items() {
-    local path=".items"
-    for idx in "${NAV_STACK[@]}"; do
-        path="${path}[${idx}].items"
-    done
-    echo "$CONFIG" | jq -r "${path}[] | [.key, .type, .description, (.icon // \"-\"), (.command // \"\"), (if .immediate then \"true\" else \"false\" end)] | map(tostring | gsub(\"\t\"; \" \")) | join(\"\t\")" 2>/dev/null
-}
-
-get_breadcrumb() {
-    local path=".items"
-    local out="$TITLE_ROOT"
-    for idx in "${NAV_STACK[@]}"; do
-        out+=" $ICON_SEP $ICON_GROUP$(echo "$CONFIG" | jq -r "${path}[${idx}].description")"
-        path="${path}[${idx}].items"
-    done
-    echo "$out"
-}
-
 # Repeat a string n times
-rep() { local s; printf -v s '%*s' "$2" ''; printf '%s' "${s// /$1}"; }
+rep() { local s; printf -v s '%*s' "$2" ''; printf -v REP '%s' "${s// /$1}"; }
 
 render_menu() {
-    local title
-    title=$(get_breadcrumb)
+    local title="$TITLE_ROOT"
+    [[ -n "$CUR" ]] && title+=" $ICON_SEP $ICON_GROUP$CUR_LABEL"
 
-    local keys=() types=() descs=() kw=1 dw=1
-    local icons=()
-    while IFS=$'\t' read -r key type desc icon _rest; do
-        [[ "$type" == "group" ]] && desc="$ICON_GROUP$desc"
-        keys+=("$key")
-        types+=("$type")
-        descs+=("$desc")
-        icons+=("$icon")
-        (( ${#key} > kw )) && kw=${#key}
-        (( ${#desc} > dw )) && dw=${#desc}
-    done < <(get_current_items)
+    local idx=() kw=1 dw=1 i d
+    for i in "${!M_KEY[@]}"; do
+        [[ "${M_PARENT[$i]}" == "$CUR" ]] || continue
+        idx+=("$i")
+        d="${M_LABEL[$i]}"
+        [[ "${M_TYPE[$i]}" == group ]] && d="$ICON_GROUP$d"
+        (( ${#M_KEY[$i]} > kw )) && kw=${#M_KEY[$i]}
+        (( ${#d} > dw )) && dw=${#d}
+    done
 
-    local total=${#keys[@]}
+    local total=${#idx[@]}
     local area=$((COLS - 6))                       # inside border + 2 spaces each side
     layout "$total" "$kw" "$dw" "$area"
     local num_cols=$L_COLS num_rows=$L_ROWS
     local box_rows=$(( ROWS - 2 > num_rows ? ROWS - 2 : num_rows ))   # fill the popup on smaller levels
     local col_w=$((area / num_cols))
+    local maxd=$((col_w - kw - 4 - ICON_W))
+    (( maxd > MAX_DESC )) && maxd=$MAX_DESC
 
-    printf '\033[H'
+    local out
     # Top border with the breadcrumb in it
-    printf "%s%s%s %s%s%s %s%s%s\033[K\n" "$C_BORDER" "$BORDER_TL" "$BORDER_H" "$C_TITLE" "$title" "$C_BORDER" "$(rep "$BORDER_H" $((COLS - ${#title} - 5)))" "$BORDER_TR" "$C_R"
+    rep "$BORDER_H" $((COLS - ${#title} - 5))
+    printf -v out "\033[H%s%s%s %s%s%s %s%s%s\033[K\n" "$C_BORDER" "$BORDER_TL" "$BORDER_H" "$C_TITLE" "$title" "$C_BORDER" "$REP" "$BORDER_TR" "$C_R"
 
-    local row col i
+    local row col n k dc
     for ((row = 0; row < box_rows; row++)); do
         if (( row >= num_rows )); then
-            printf "%s%s%s%*s%s%s%s\033[K\n" "$C_BORDER" "$BORDER_V" "$C_R" $((COLS - 2)) "" "$C_BORDER" "$BORDER_V" "$C_R"
+            printf -v out "%s%s%s%s%*s%s%s%s\033[K\n" "$out" "$C_BORDER" "$BORDER_V" "$C_R" $((COLS - 2)) "" "$C_BORDER" "$BORDER_V" "$C_R"
             continue
         fi
-        printf "%s%s%s  " "$C_BORDER" "$BORDER_V" "$C_R"
+        out+="$C_BORDER$BORDER_V$C_R  "
         for ((col = 0; col < num_cols; col++)); do
-            i=$((col * num_rows + row))
-            if [[ $i -lt $total ]]; then
-                local k="${keys[$i]}" d="${descs[$i]}" dc="$C_DESC"
-                [[ "${types[$i]}" == "group" ]] && dc="$C_GRP"
-                local maxd=$((col_w - kw - 4 - ICON_W))
-                (( maxd > MAX_DESC )) && maxd=$MAX_DESC
+            n=$((col * num_rows + row))
+            if (( n < total )); then
+                i=${idx[$n]}
+                k="${M_KEY[$i]}" d="${M_LABEL[$i]}" dc="$C_DESC"
+                [[ "${M_TYPE[$i]}" == group ]] && d="$ICON_GROUP$d" dc="$C_GRP"
                 d="${d:0:$maxd}"
-                printf "%s%*s%s %s%s%s " "$C_KEY" "$kw" "$k" "$C_R" "$C_ARROW" "$ICON_ARROW" "$C_R"
+                printf -v out "%s%s%*s%s %s%s%s " "$out" "$C_KEY" "$kw" "$k" "$C_R" "$C_ARROW" "$ICON_ARROW" "$C_R"
                 if (( ICONS )); then
-                    icon_of "${icons[$i]}"
-                    printf "%s%-1s%s " "$IC_COLOR" "${IC:- }" "$C_R"
+                    icon_of "${M_ICON[$i]}"
+                    printf -v out "%s%s%-1s%s " "$out" "$IC_COLOR" "${IC:- }" "$C_R"
                 fi
-                printf "%s%s%s%*s" "$dc" "$d" "$C_R" $((col_w - kw - 3 - ICON_W - ${#d})) ""
+                printf -v out "%s%s%s%s%*s" "$out" "$dc" "$d" "$C_R" $((col_w - kw - 3 - ICON_W - ${#d})) ""
             else
-                printf "%*s" "$col_w" ""
+                printf -v out "%s%*s" "$out" "$col_w" ""
             fi
         done
-        printf "%*s  %s%s%s\033[K\n" $((area - num_cols * col_w)) "" "$C_BORDER" "$BORDER_V" "$C_R"
+        printf -v out "%s%*s  %s%s%s\033[K\n" "$out" $((area - num_cols * col_w)) "" "$C_BORDER" "$BORDER_V" "$C_R"
     done
 
     # Bottom border with the key hints centered in it
     local hint="$HINT_CLOSE"
-    [[ ${#NAV_STACK[@]} -gt 0 ]] && hint+="  $HINT_BACK"
-    local left=$(( (COLS - 4 - ${#hint}) / 2 ))
-    printf "%s%s%s %s%s%s %s%s%s\033[J" "$C_BORDER" "$BORDER_BL" "$(rep "$BORDER_H" "$left")" "$C_FOOT" "$hint" "$C_BORDER" "$(rep "$BORDER_H" $((COLS - 4 - ${#hint} - left)))" "$BORDER_BR" "$C_R"
+    [[ -n "$CUR" ]] && hint+="  $HINT_BACK"
+    local left=$(( (COLS - 4 - ${#hint}) / 2 )) lrep
+    rep "$BORDER_H" "$left"; lrep=$REP
+    rep "$BORDER_H" $((COLS - 4 - ${#hint} - left))
+    printf -v out "%s%s%s%s %s%s%s %s%s%s\033[J" "$out" "$C_BORDER" "$BORDER_BL" "$lrep" "$C_FOOT" "$hint" "$C_BORDER" "$REP" "$BORDER_BR" "$C_R"
+    printf '%s' "$out"   # one write per frame
 }
 
 handle_key() {
-    local keypress="$1"
-    local i=0
-
-    while IFS=$'\t' read -r key type desc _icon command immediate; do
-        if [[ "$key" == "$keypress" ]]; then
-            case "$type" in
-                group)
-                    NAV_STACK+=("$i")
-                    return 0
-                    ;;
-                action)
-                    tmux send-keys -t "$PANE_ID" -l "$command"
-                    if [[ "$immediate" == "true" ]]; then
-                        tmux send-keys -t "$PANE_ID" Enter
-                    fi
-                    exit 0
-                    ;;
-                popup)
-                    local pane_path
-                    pane_path=$(tmux display-message -t "$PANE_ID" -p '#{pane_current_path}')
-                    tmux run-shell -b "sleep 0.1 && tmux display-popup -E -h 80% -w 80% -d '$pane_path' '$command'"
-                    exit 0
-                    ;;
-                key)
-                    local tbl ks
-                    read -r tbl ks <<< "$command"
-                    local cmd
-                    cmd=$(printf '%q ' "$PLUGIN_DIR/scripts/which-key.sh" --replay "$tbl" "$ks" --client "$CLIENT" "$PANE_ID")
-                    tmux run-shell -b "${cmd//\#/##}"   # ## so run-shell does not expand # as a format
-                    exit 0
-                    ;;
-                tmux)
-                    case "$command" in
-                        choose-*|command-prompt*|customize-mode*|copy-mode*)
-                            tmux run-shell -b "sleep 0.1 && tmux $command"
-                            ;;
-                        *)
-                            tmux $command
-                            ;;
-                    esac
-                    exit 0
-                    ;;
-                script)
-                    tmux run-shell "$command"
-                    exit 0
-                    ;;
-            esac
-        fi
-        ((i++))
-    done < <(get_current_items)
+    local i command
+    for i in "${!M_KEY[@]}"; do
+        [[ "${M_PARENT[$i]}" == "$CUR" && "${M_KEY[$i]}" == "$1" ]] || continue
+        command="${M_CMD[$i]}"
+        case "${M_TYPE[$i]}" in
+            group)
+                CUR="${M_KEY[$i]}" CUR_LABEL="${M_LABEL[$i]}"
+                return 0
+                ;;
+            action)
+                tmux send-keys -t "$PANE_ID" -l "$command" \; send-keys -t "$PANE_ID" Enter
+                ;;
+            popup)
+                local pane_path
+                pane_path=$(tmux display-message -t "$PANE_ID" -p '#{pane_current_path}')
+                tmux run-shell -b "sleep 0.1 && tmux display-popup -E -h 80% -w 80% -d '$pane_path' '$command'"
+                ;;
+            key)
+                local tbl ks cmd
+                read -r tbl ks <<< "$command"
+                cmd=$(printf '%q ' "$PLUGIN_DIR/scripts/which-key.sh" --replay "$tbl" "$ks" --client "$CLIENT" "$PANE_ID")
+                tmux run-shell -b "${cmd//\#/##}"   # ## so run-shell does not expand # as a format
+                ;;
+            tmux)
+                case "$command" in
+                    choose-*|command-prompt*|customize-mode*|copy-mode*)
+                        tmux run-shell -b "sleep 0.1 && tmux $command"
+                        ;;
+                    *)
+                        tmux $command
+                        ;;
+                esac
+                ;;
+            script)
+                tmux run-shell "$command"
+                ;;
+        esac
+        exit 0
+    done
 }
 
 # Main loop
 while true; do
     render_menu
 
-    IFS= read -rsn1 keypress
+    IFS= read -rsn1 keypress || exit 0
 
     # Escape
     if [[ "$keypress" == $'\x1b' ]]; then
@@ -527,22 +274,16 @@ while true; do
         # Drop the rest of an escape sequence (arrows, F-keys) so it is not read as menu keys
         [[ -n "$seq1" ]] && while read -rsn1 -t 0.01 _; do :; done
         if [[ -z "$seq1" ]]; then
-            if [[ ${#NAV_STACK[@]} -gt 0 ]]; then
-                unset 'NAV_STACK[${#NAV_STACK[@]}-1]'
-            else
-                exit 0
-            fi
+            [[ -n "$CUR" ]] || exit 0
+            CUR=""
         fi
         continue
     fi
 
     # Backspace
     if [[ "$keypress" == $'\x7f' || "$keypress" == $'\x08' ]]; then
-        if [[ ${#NAV_STACK[@]} -gt 0 ]]; then
-            unset 'NAV_STACK[${#NAV_STACK[@]}-1]'
-        else
-            exit 0
-        fi
+        [[ -n "$CUR" ]] || exit 0
+        CUR=""
         continue
     fi
 
@@ -553,7 +294,8 @@ while true; do
             $'\t')  keypress=Tab ;;
             [$'\x01'-$'\x1a'])
                 printf -v n '%d' "'$keypress"
-                printf -v keypress "C-\\x$(printf '%x' $((n + 96)))"
+                printf -v hex '%x' $((n + 96))
+                printf -v keypress "C-\\x$hex"
                 ;;
         esac
         handle_key "$keypress"

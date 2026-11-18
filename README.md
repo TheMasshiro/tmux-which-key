@@ -8,18 +8,17 @@ A which-key popup for tmux. Press `prefix + Space` and see every key you have bo
 ![tmux](https://img.shields.io/badge/tmux-3.4+-green?style=flat-square)
 ![Catppuccin Mocha theme](https://img.shields.io/badge/theme-Catppuccin%20Mocha-CBA6F7?style=flat-square&labelColor=1E1E2E)
 
-![tmux-which-key screenshot](docs/root-menu.png)
-
 ## Features
 
 - **Your real bindings** - built from the running tmux, grouped into pane, window, session, buffer, layout and misc
 - **Git group** - `g` for status, diff, log, add, commit, push, pull, stash and lazygit (if installed)
 - **Your own keys in tmux.conf** - add groups and keys that run shell commands, tmux commands, popups or scripts
 - **Compact popup** - sized to the menu, with Nerd Font icons and a swappable theme
+- **Light** - plain bash and awk; opening is one tmux call, and keys in the popup start no processes
 
 ## Requirements
 
-- tmux 3.4+ and `jq`
+- tmux 3.4+, bash 4+ and awk
 - A true color terminal, and a [Nerd Font](https://www.nerdfonts.com/) for the icons
 
 ## Installation
@@ -54,8 +53,7 @@ Keys inside a group are the real tmux keys: `prefix Space p |` does what `prefix
 | `@which-key-theme` | `catppuccin-mocha` | Theme name in `themes/`, or a path |
 | `@which-key-popup-width` / `-height` | fits the menu | Popup size |
 | `@which-key-popup-x` / `-y` | `C` / bottom | Popup position |
-| `@which-key-extras` | `configs/extras.json` | Extra groups file (the git group), or `none` |
-| `@which-key-config` | none | Static JSON menu that replaces the live one (example: `configs/default.json`) |
+| `@which-key-extras` | `configs/git.conf` | tmux file of extra entries (the git group), or `none` |
 
 ## Your Own Keys
 
@@ -72,6 +70,7 @@ set -g @which-key-group-l none                         # remove a group
 
 The part after ` : ` is typed into the pane and run. Prefix it with `tmux:` for a tmux command,
 `popup:` for a popup in the pane's directory, or `run:` for a background shell command.
+The git group is written the same way, in [configs/git.conf](configs/git.conf).
 
 ## Themes
 

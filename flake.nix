@@ -14,7 +14,7 @@
       packages = forAllSystems (pkgs: {
         default = pkgs.tmuxPlugins.mkTmuxPlugin {
           pluginName = "tmux-which-key";
-          version = "2026-04-21";
+          version = "2026-11-18";
           src = ./.;
           rtpFilePath = "which-key.tmux";
         };
