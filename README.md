@@ -8,6 +8,8 @@ A which-key popup for tmux. Press `prefix + Space` and see every key you have bo
 ![tmux](https://img.shields.io/badge/tmux-3.4+-green?style=flat-square)
 ![Catppuccin Mocha theme](https://img.shields.io/badge/theme-Catppuccin%20Mocha-CBA6F7?style=flat-square&labelColor=1E1E2E)
 
+![tmux-which-key popup](https://github.com/user-attachments/assets/5cd66287-dc0b-466f-95b0-46fff756c9e2)
+
 ## Features
 
 - **Your real bindings** - built from the running tmux, grouped into pane, window, session, buffer, layout and misc
