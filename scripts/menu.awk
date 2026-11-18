@@ -25,7 +25,8 @@ BEGIN { FS = "\t"; SEP = "\037"; nb = 0; ngo = 0; nent = 0; nroot = 0 }
     c = $6
     for (i = 7; i <= NF; i++) c = c " " $i
     # keys the popup cannot read (arrows, Alt, Shift, ...) and send-prefix are left out
-    if ($3 ~ /^(M-|S-|C-M-|C-(Up|Down|Left|Right)$|(Up|Down|Left|Right|DC|PPage|NPage|Home|End|BTab)$)/ || c == "send-prefix") next
+    # (no $ inside groups: some awks only treat a final $ as an anchor)
+    if ($3 ~ /^(M-|S-|C-M-)/ || $3 ~ /^(C-Up|C-Down|C-Left|C-Right|Up|Down|Left|Right|DC|PPage|NPage|Home|End|BTab)$/ || c == "send-prefix") next
     nb++; bt[nb] = $2; bk[nb] = $3; br[nb] = $4; bn[nb] = $5; bc[nb] = c
     next
 }
@@ -60,7 +61,7 @@ function cap(s) { return toupper(substr(s, 1, 1)) substr(s, 2) }
 function pretty(s) { gsub(/[-_]/, " ", s); return cap(s) }
 function word(s, n,   a) { split(s, a, " "); return a[n] }
 function dir(c,   d) {
-    if (!match(c, / -[LRUD]( |$)/)) return ""
+    if (!match(c " ", / -[LRUD] /)) return ""
     d = substr(c, RSTART + 2, 1)
     return d == "L" ? "left" : d == "R" ? "right" : d == "U" ? "up" : "down"
 }
@@ -70,14 +71,14 @@ function after(c, re, skip) { match(c, re); return substr(c, RSTART + skip, RLEN
 function name_of(c, n,   s) {
     if (c ~ /which-key/) return "Which key"
     if (c ~ /source-file/) return "Reload config"
-    if (c ~ /^split-window.* -h( |$)/) return "Split vertical"
+    if (c " " ~ /^split-window.* -h /) return "Split vertical"
     if (c ~ /^split-window/) return "Split horizontal"
-    if (c ~ /^select-pane -[LRUD]( |$)/) return "Pane " dir(c)
+    if (c " " ~ /^select-pane -[LRUD] /) return "Pane " dir(c)
     if (c ~ /^select-pane -m/) return "Mark pane"
     if (c ~ /^select-pane -M/) return "Unmark pane"
     if (c ~ /select-pane -T/) return "Pane title"
     if (c ~ /^resize-pane -Z/) return "Zoom"
-    if (c ~ /^resize-pane -[LRUD]( |$)/) return "Resize " dir(c)
+    if (c " " ~ /^resize-pane -[LRUD] /) return "Resize " dir(c)
     if (c ~ /^resize-pane -x "100%" -y "100%"/) return "Fill window"
     if (c ~ /^move-pane -P /) return pretty(after(c, "-P [a-z-]+", 3))
     if (c ~ /^if-shell.*Move & Resize/) return "Move + resize menu"

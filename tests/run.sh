@@ -4,7 +4,7 @@
 #        AWK='busybox awk' tests/run.sh
 #        UPDATE=1 tests/run.sh         rewrite the expected files from the current output
 set -uo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")" || exit
 AWK=${AWK:-awk}
 fail=0
 

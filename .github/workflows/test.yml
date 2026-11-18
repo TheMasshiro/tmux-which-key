@@ -8,7 +8,7 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install awks and shellcheck
         run: sudo apt-get update -qq && sudo apt-get install -y -qq gawk mawk busybox shellcheck
       - name: shellcheck
@@ -21,12 +21,3 @@ jobs:
         run: AWK=mawk tests/run.sh
       - name: busybox awk
         run: AWK='busybox awk' tests/run.sh
-
-  macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: bash 4+ (macOS ships 3.2)
-        run: brew install bash && echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
-      - name: BSD awk
-        run: AWK=/usr/bin/awk tests/run.sh

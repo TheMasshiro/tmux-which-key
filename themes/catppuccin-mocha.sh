@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Catppuccin Mocha theme for tmux-which-key.
 # shellcheck disable=SC2034  # read by scripts/which-key.sh
 # Copy this file, edit anything below, and set @which-key-theme to the copy's path.

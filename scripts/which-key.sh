@@ -96,18 +96,18 @@ if [[ -n "$OPEN" ]]; then
     ICON_W=$(( ICONS ? 2 : 0 ))   # icon glyph + space
 
     # Per level: item count, widest key, widest label
-    declare -A n=() kw=() dw=()
+    declare -A lv_n=() lv_kw=() lv_dw=()
     while IFS="$US" read -r parent key type label _; do
         [[ "$type" == group ]] && label="$ICON_GROUP$label"
         p="_$parent"
-        (( n[$p] = ${n[$p]:-0} + 1 ))
-        (( ${#key} > ${kw[$p]:-0} )) && kw[$p]=${#key}
-        (( ${#label} > ${dw[$p]:-0} )) && dw[$p]=${#label}
+        (( lv_n[$p] = ${lv_n[$p]:-0} + 1 ))
+        (( ${#key} > ${lv_kw[$p]:-0} )) && lv_kw[$p]=${#key}
+        (( ${#label} > ${lv_dw[$p]:-0} )) && lv_dw[$p]=${#label}
     done <<< "${MENU%$'\n'}"
     cw=${OPT[client_width]} ch=${OPT[client_height]}
     w=40 h=0   # 40 leaves room for the breadcrumb and footer
-    for p in "${!n[@]}"; do
-        layout "${n[$p]}" "${kw[$p]}" "${dw[$p]}" $((cw - 6))
+    for p in "${!lv_n[@]}"; do
+        layout "${lv_n[$p]}" "${lv_kw[$p]}" "${lv_dw[$p]}" $((cw - 6))
         (( L_WIDTH + 6 > w )) && w=$((L_WIDTH + 6))
         (( L_ROWS + 2 > h )) && h=$((L_ROWS + 2))
     done
