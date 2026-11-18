@@ -36,6 +36,9 @@ git clone https://github.com/TheMasshiro/tmux-which-key.git ~/.tmux/plugins/tmux
 echo 'run-shell ~/.tmux/plugins/tmux-which-key/which-key.tmux' >> ~/.tmux.conf
 ```
 
+If a TPM update fails with "divergent branches" (the history was rewritten on 2026-11-18),
+delete `~/.tmux/plugins/tmux-which-key` (or `~/.config/tmux/plugins/tmux-which-key`) and press `prefix + I`.
+
 With Nix flakes, add the input `github:TheMasshiro/tmux-which-key` and put
 `inputs.tmux-which-key.packages.${pkgs.system}.default` in `programs.tmux.plugins`.
 
@@ -43,6 +46,7 @@ With Nix flakes, add the input `github:TheMasshiro/tmux-which-key` and put
 
 Press `prefix + Space`, then a key. `+Name` entries open a group; `esc` and `⌫` go back or close.
 Keys inside a group are the real tmux keys: `prefix Space p |` does what `prefix |` does.
+Repeatable bindings (`bind -r`, e.g. resizing) keep the menu open, so `p h h h` resizes three times.
 
 ## Options
 
@@ -82,6 +86,11 @@ Copy it, edit it, and set `@which-key-theme` to the copy's path.
 Known tmux commands get plain labels ("Split vertical", "Kill pane"). For anything else,
 `bind -N "note"` (24 characters max) sets the label. A `switch-client -T <table>` binding becomes a
 group for that key table; when its key is taken (like `g` by git) it moves to a free one.
+
+## Tests
+
+`tests/run.sh` checks the menu and the popup against a fixture (`AWK='busybox awk' tests/run.sh`
+for another awk). After changing `tests/fixture.conf`, run `tests/make-fixture.sh`.
 
 ## License
 

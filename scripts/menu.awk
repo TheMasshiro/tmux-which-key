@@ -1,10 +1,13 @@
 # tmux-which-key menu builder (POSIX awk). Fed one tmux dump by which-key.sh:
 #   D<TAB>client_width<TAB>client_height
-#   K<TAB>table<TAB>key<TAB>note<TAB>command        one per binding (list-keys)
+#   K<TAB>table<TAB>key<TAB>repeat<TAB>note<TAB>command   one per binding (list-keys)
 #   @name value                                    global options (show-options -g)
 # Prints, fields separated by \037:
 #   S name value                                   a setting (@which-key-<name>, client size)
 #   M parent key type label icon command           a menu item; parent is "" at the root
+#
+# A binding is type key (command "<table> <key>", replayed once the popup closes) or,
+# when bound with -r, type repeat (command is the tmux command; the popup stays open).
 #
 # Live menu: prefix bindings grouped by the tmux command family they run (pane, window, ...);
 # a `switch-client -T <table>` binding becomes a group listing that table.
@@ -19,11 +22,11 @@ BEGIN { FS = "\t"; SEP = "\037"; nb = 0; ngo = 0; nent = 0; nroot = 0 }
 /^D\t/ { print "S" SEP "client_width" SEP $2; print "S" SEP "client_height" SEP $3; next }
 
 /^K\t/ {
-    c = $5
-    for (i = 6; i <= NF; i++) c = c " " $i
+    c = $6
+    for (i = 7; i <= NF; i++) c = c " " $i
     # keys the popup cannot read (arrows, Alt, Shift, ...) and send-prefix are left out
     if ($3 ~ /^(M-|S-|C-M-|C-(Up|Down|Left|Right)$|(Up|Down|Left|Right|DC|PPage|NPage|Home|End|BTab)$)/ || c == "send-prefix") next
-    nb++; bt[nb] = $2; bk[nb] = $3; bn[nb] = $4; bc[nb] = c
+    nb++; bt[nb] = $2; bk[nb] = $3; br[nb] = $4; bn[nb] = $5; bc[nb] = c
     next
 }
 
@@ -170,6 +173,10 @@ function sort_idx(idx, n, keys,   i, j, t) {
 # Root items: rk/rt/rl/ri/rc[r]; group r's items: ck/ct/cl/ci/cc[r, j], j <= cn[r]
 function add_root(k, t, l, ic, c) { nr++; rk[nr] = k; rt[nr] = t; rl[nr] = l; ri[nr] = ic; rc[nr] = c; cn[nr] = 0; return nr }
 function add_child(r, k, t, l, ic, c,   j) { j = ++cn[r]; ck[r, j] = k; ct[r, j] = t; cl[r, j] = l; ci[r, j] = ic; cc[r, j] = c }
+function add_binding(r, i, ic) {
+    if (br[i] == "1") add_child(r, bk[i], "repeat", name_of(bc[i], bn[i]), ic, bc[i])
+    else add_child(r, bk[i], "key", name_of(bc[i], bn[i]), ic, bt[i] " " bk[i])
+}
 function find_root(k,   r) { for (r = 1; r <= nr; r++) if (rk[r] == k) return r; return 0 }
 
 # Parses 'Label : command'; the command is typed into the pane unless prefixed tmux:, popup: or run:
@@ -251,7 +258,7 @@ END {
         if (!nfi[f]) continue
         k = famkey[f]; taken[k] = 1
         r = add_root(k, "group", (k in rename) ? rename[k] : cap(fam[f]), fam[f], "")
-        for (j = 1; j <= nfi[f]; j++) { i = fi[f, j]; add_child(r, bk[i], "key", name_of(bc[i], bn[i]), fam[f], bt[i] " " bk[i]) }
+        for (j = 1; j <= nfi[f]; j++) add_binding(r, fi[f, j], fam[f])
     }
 
     # key tables reached with switch-client -T
@@ -261,7 +268,7 @@ END {
         label = pretty(t)
         k = free_key(bk[i], label); taken[k] = 1
         r = add_root(k, "group", label, t, "")
-        for (j = 1; j <= nb; j++) if (bt[j] == t) add_child(r, bk[j], "key", name_of(bc[j], bn[j]), t, bt[j] " " bk[j])
+        for (j = 1; j <= nb; j++) if (bt[j] == t) add_binding(r, j, t)
     }
 
     for (k in removed) if (r = find_root(k)) remove_root(r)

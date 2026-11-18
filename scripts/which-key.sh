@@ -7,6 +7,7 @@
 # Kept light on purpose: opening is one tmux call and one awk pass, the popup spawns nothing until a key runs.
 
 set -uo pipefail
+# shellcheck source-path=SCRIPTDIR/..
 
 PLUGIN_DIR="$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)"
 PANE_ID="" CLIENT="" THEME_FILE="" ICONS=1 COLS="" ROWS="" OPEN="" REPLAY_TABLE="" REPLAY_KEY=""
@@ -76,14 +77,20 @@ if [[ -n "$OPEN" ]]; then
             MENU+=${line#M"$US"}$'\n'
         fi
     done < <(tmux display-message -p -c "$CLIENT" $'D\t#{client_width}\t#{client_height}' \; \
-                  list-keys -F $'K\t#{key_table}\t#{key_string}\t#{key_note}\t#{key_command}' \; \
+                  list-keys -F $'K\t#{key_table}\t#{key_string}\t#{key_repeat}\t#{key_note}\t#{key_command}' \; \
                   show-options -g | awk -f "$PLUGIN_DIR/scripts/menu.awk")
     [[ -n "${OPT[client_width]:-}" ]] || die "could not read the tmux bindings"
+    # Settings removed in the jq-free rewrite (the check reads the dump, so it costs nothing otherwise)
+    if [[ -n "${OPT[config]:-}" || "${OPT[extras]:-}" == *.json ]]; then
+        tmux display-message -c "$CLIENT" -d 5000 \
+            "tmux-which-key: @which-key-config and JSON extras were removed; see the README (Your Own Keys)"
+    fi
 
     theme=${OPT[theme]:-catppuccin-mocha}
     theme=${theme/#\~/$HOME}
     if [[ "$theme" == */* ]]; then THEME_FILE="$theme"; else THEME_FILE="$PLUGIN_DIR/themes/$theme.sh"; fi
     [[ -f "$THEME_FILE" ]] || die "theme not found: $THEME_FILE"
+    # shellcheck source=themes/catppuccin-mocha.sh
     source "$THEME_FILE"
     case "${OPT[icons]:-on}" in off|0|no|false) ICONS=0 ;; esac
     ICON_W=$(( ICONS ? 2 : 0 ))   # icon glyph + space
@@ -122,6 +129,7 @@ fi
 # Popup mode: everything below runs without starting a process until a key runs something
 [[ -f "$THEME_FILE" ]] || die "theme not found: $THEME_FILE"
 C_ICON=""
+# shellcheck source=themes/catppuccin-mocha.sh
 source "$THEME_FILE"
 C_R=$'\033[0m'
 ICON_W=$(( ICONS ? 2 : 0 ))
@@ -220,6 +228,16 @@ render_menu() {
     printf '%s' "$out"   # one write per frame
 }
 
+# Quotes a string as one sh word, with # doubled so run-shell does not expand it as a format
+sh_arg() { local s="'${1//\'/\'\\\'\'}'"; printf '%s' "${s//\#/##}"; }
+
+# Runs a tmux command string through tmux's own parser, so quotes, braces and ; work as in tmux.conf.
+# An error shows in the status line, like one from a typed key.
+run_tmux() {
+    local out
+    out=$(printf '%s\n' "$1" | tmux source-file - 2>&1) || tmux display-message -l -c "$CLIENT" "$out"
+}
+
 handle_key() {
     local i command
     for i in "${!M_KEY[@]}"; do
@@ -230,27 +248,32 @@ handle_key() {
                 CUR="${M_KEY[$i]}" CUR_LABEL="${M_LABEL[$i]}"
                 return 0
                 ;;
+            repeat)
+                # bind -r: run it now and stay open, so the key can be pressed again
+                run_tmux "$command"
+                return 0
+                ;;
             action)
                 tmux send-keys -t "$PANE_ID" -l "$command" \; send-keys -t "$PANE_ID" Enter
                 ;;
             popup)
                 local pane_path
                 pane_path=$(tmux display-message -t "$PANE_ID" -p '#{pane_current_path}')
-                tmux run-shell -b "sleep 0.1 && tmux display-popup -E -h 80% -w 80% -d '$pane_path' '$command'"
+                tmux run-shell -b "sleep 0.1 && tmux display-popup -E -h 80% -w 80% -d $(sh_arg "$pane_path") $(sh_arg "$command")"
                 ;;
             key)
-                local tbl ks cmd
+                local tbl ks
                 read -r tbl ks <<< "$command"
-                cmd=$(printf '%q ' "$PLUGIN_DIR/scripts/which-key.sh" --replay "$tbl" "$ks" --client "$CLIENT" "$PANE_ID")
-                tmux run-shell -b "${cmd//\#/##}"   # ## so run-shell does not expand # as a format
+                tmux run-shell -b "$(sh_arg "$PLUGIN_DIR/scripts/which-key.sh") --replay $(sh_arg "$tbl") $(sh_arg "$ks") --client $(sh_arg "$CLIENT") $(sh_arg "$PANE_ID")"
                 ;;
             tmux)
                 case "$command" in
                     choose-*|command-prompt*|customize-mode*|copy-mode*)
-                        tmux run-shell -b "sleep 0.1 && tmux $command"
+                        # these need the popup gone first
+                        tmux run-shell -b "sleep 0.1 && printf '%s\n' $(sh_arg "$command") | tmux source-file -"
                         ;;
                     *)
-                        tmux $command
+                        run_tmux "$command"
                         ;;
                 esac
                 ;;
@@ -295,7 +318,7 @@ while true; do
             [$'\x01'-$'\x1a'])
                 printf -v n '%d' "'$keypress"
                 printf -v hex '%x' $((n + 96))
-                printf -v keypress "C-\\x$hex"
+                printf -v keypress 'C-%b' "\\x$hex"
                 ;;
         esac
         handle_key "$keypress"

@@ -1,0 +1,83 @@
+S|client_width|100
+S|client_height|30
+S|icons|off
+M||g|group|Git|git|
+M||M|group|Tools|tools|
+M||p|group|Panes|pane|
+M||w|group|Window|window|
+M||s|group|Session|session|
+M||l|group|Layout|layout|
+M||m|group|Misc|misc|
+M||a|group|Move|move|
+M||f|script|Files|-|yazi
+M|g|L|popup|Lazygit|git|lazygit
+M|g|S|action|Stash|git|git stash
+M|g|s|action|Status|git|git status
+M|M|h|popup|Htop|tools|htop
+M|p|Tab|key|Switch to a window|pane|prefix Tab
+M|p|!|key|Break pane|pane|prefix !
+M|p|"|key|Split horizontal|pane|prefix "
+M|p|%|key|Split vertical|pane|prefix %
+M|p|*|key|Float pane|pane|prefix *
+M|p|;|key|Last pane|pane|prefix ;
+M|p|@|key|Toggle float|pane|prefix @
+M|p|M|key|Unmark pane|pane|prefix M
+M|p|T|key|Pane title|pane|prefix T
+M|p|h|repeat|Resize left|pane|resize-pane -L 5
+M|p|m|key|Mark pane|pane|prefix m
+M|p|o|key|Select the next pane|pane|prefix o
+M|p|q|key|Pane numbers|pane|prefix q
+M|p|x|key|Kill pane|pane|prefix x
+M|p|{|key|Swap up|pane|prefix {
+M|p|}|key|Swap down|pane|prefix }
+M|p|Q|tmux|Quote|pane|display-message "a \"b\" $HOME; c"
+M|w|&|key|Kill window|window|prefix &
+M|w|'|key|Go to window|window|prefix '
+M|w|,|key|Rename window|window|prefix ,
+M|w|.|key|Move window|window|prefix .
+M|w|0|key|Window 0|window|prefix 0
+M|w|1|key|Window 1|window|prefix 1
+M|w|2|key|Window 2|window|prefix 2
+M|w|3|key|Window 3|window|prefix 3
+M|w|4|key|Window 4|window|prefix 4
+M|w|5|key|Window 5|window|prefix 5
+M|w|6|key|Window 6|window|prefix 6
+M|w|7|key|Window 7|window|prefix 7
+M|w|8|key|Window 8|window|prefix 8
+M|w|9|key|Window 9|window|prefix 9
+M|w|c|key|New window|window|prefix c
+M|w|f|key|Find window|window|prefix f
+M|w|l|key|Last window|window|prefix l
+M|w|p|key|Prev window|window|prefix p
+M|w|C-o|key|Rotate panes|window|prefix C-o
+M|s|$|key|Rename session|session|prefix $
+M|s|(|key|Prev session|session|prefix (
+M|s|)|key|Next session|session|prefix )
+M|s|D|key|Choose client|session|prefix D
+M|s|L|key|Last session|session|prefix L
+M|s|d|key|Detach|session|prefix d
+M|s|r|key|Refresh|session|prefix r
+M|s|s|key|Choose session|session|prefix s
+M|s|w|key|Choose window|session|prefix w
+M|s|C-z|key|Suspend|session|prefix C-z
+M|l|Space|key|Next layout|layout|prefix Space
+M|l|E|key|Spread evenly|layout|prefix E
+M|m|/|key|Describe key|misc|prefix /
+M|m|:|key|Command prompt|misc|prefix :
+M|m|<|key|Window menu|misc|prefix <
+M|m|>|key|Pane menu|misc|prefix >
+M|m|?|key|List keys|misc|prefix ?
+M|m|C|key|Options|misc|prefix C
+M|m|R|key|Deploy site|misc|prefix R
+M|m|i|key|Info|misc|prefix i
+M|m|n|key|Open notes|misc|prefix n
+M|m|t|key|Clock|misc|prefix t
+M|m|~|key|Messages|misc|prefix ~
+M|a|,|key|Move window|move|move ,
+M|a|.|key|Move + resize menu|move|move .
+M|a|0|key|Fill window|move|move 0
+M|a|1|key|Top left|move|move 1
+M|a|2|key|Top right|move|move 2
+M|a|3|key|Bottom left|move|move 3
+M|a|4|key|Bottom right|move|move 4
+M|a|h|key|Pane left|move|move h
