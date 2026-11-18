@@ -87,11 +87,6 @@ Known tmux commands get plain labels ("Split vertical", "Kill pane"). For anythi
 `bind -N "note"` (24 characters max) sets the label. A `switch-client -T <table>` binding becomes a
 group for that key table; when its key is taken (like `g` by git) it moves to a free one.
 
-## Tests
-
-`tests/run.sh` checks the menu and the popup against a fixture (`AWK='busybox awk' tests/run.sh`
-for another awk). After changing `tests/fixture.conf`, run `tests/make-fixture.sh`.
-
 ## License
 
 MIT
